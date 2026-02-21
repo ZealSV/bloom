@@ -57,14 +57,12 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
       const text = await response.text();
       if (text.includes("<!DOCTYPE html>")) {
         return {
-          error:
-            "Server returned an HTML error page",
+          error: "Server returned an HTML error page",
         };
       }
 
       return {
-        error:
-          text.slice(0, 300) || "Server returned a non-JSON response.",
+        error: text.slice(0, 300) || "Server returned a non-JSON response.",
       };
     };
 
@@ -82,7 +80,7 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
     if (!response.ok) {
       throw new Error(
         (result as { error?: string })?.error ||
-          `Upload failed (${response.status})`
+          `Upload failed (${response.status})`,
       );
     }
 
@@ -104,7 +102,7 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
     if (!ingestResponse.ok) {
       throw new Error(
         (ingestResult as { error?: string })?.error ||
-          `Ingest failed (${ingestResponse.status})`
+          `Ingest failed (${ingestResponse.status})`,
       );
     }
   };
