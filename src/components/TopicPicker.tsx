@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowRight } from "lucide-react";
+import Upload from "@/components/Upload";
 
 const SUBJECTS = [
   "Biology",
@@ -36,11 +37,75 @@ interface TopicPickerProps {
 export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
   const [topic, setTopic] = useState("");
   const [subject, setSubject] = useState("");
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (topic.trim()) {
       onStart(topic.trim(), subject || undefined);
+    }
+  };
+
+  // call api upload & ingest
+  const handleFileUpload = async (file: File) => {
+    const readApiResponse = async (response: Response) => {
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        return response.json();
+      }
+
+      const text = await response.text();
+      if (text.includes("<!DOCTYPE html>")) {
+        return {
+          error:
+            "Server returned an HTML error page",
+        };
+      }
+
+      return {
+        error:
+          text.slice(0, 300) || "Server returned a non-JSON response.",
+      };
+    };
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("title", file.name);
+
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    const result = await readApiResponse(response);
+
+    if (!response.ok) {
+      throw new Error(
+        (result as { error?: string })?.error ||
+          `Upload failed (${response.status})`
+      );
+    }
+
+    const documentId = result?.documentId;
+    if (typeof documentId !== "string" || !documentId) {
+      throw new Error("Upload succeeded but no documentId was returned.");
+    }
+
+    const ingestResponse = await fetch("/api/ingest", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ documentId }),
+    });
+
+    const ingestResult = await readApiResponse(ingestResponse);
+
+    if (!ingestResponse.ok) {
+      throw new Error(
+        (ingestResult as { error?: string })?.error ||
+          `Ingest failed (${ingestResponse.status})`
+      );
     }
   };
 
@@ -111,6 +176,21 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
             {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
           </Button>
         </form>
+
+        <Button
+          type="button"
+          className="w-full h-11 mt-4"
+          disabled={loading}
+          onClick={() => setIsUploadOpen(true)}
+        >
+          Upload File
+        </Button>
+
+        <Upload
+          open={isUploadOpen}
+          onOpenChange={setIsUploadOpen}
+          onUpload={handleFileUpload}
+        />
 
         <div className="mt-8">
           <p className="text-xs text-muted-foreground mb-3 text-center">
