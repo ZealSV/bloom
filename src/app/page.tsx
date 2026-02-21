@@ -119,7 +119,7 @@ export default function LandingPage() {
 
           <div className="grid sm:grid-cols-2 gap-6">
             {[
-              { icon: MessageCircle, title: "Socratic questioning", desc: "bloom asks 'why?' and 'what if?' until you've explored every corner. It never accepts surface-level answers." },
+              { icon: MessageCircle, title: "Socratic questioning", desc: "Bloom asks 'why?' and 'what if?' until you've explored every corner. It never accepts surface-level answers." },
               { icon: Sprout, title: "Knowledge garden", desc: "A living visualization. Each concept is a flower that grows from seed to full bloom as your mastery increases." },
               { icon: Zap, title: "Gap detection", desc: "When you hand-wave, skip steps, or say 'basically' — bloom catches it. It pushes you to fill the gaps." },
               { icon: GitFork, title: "Concept mapping", desc: "See how ideas connect with a force-directed graph. Prerequisites, dependencies, the full picture." },
