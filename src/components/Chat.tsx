@@ -13,6 +13,7 @@ interface ChatProps {
   topic: string;
   messages: Message[];
   concepts: Concept[];
+  sessionMastery?: number;
   isStreaming: boolean;
   onSend: (message: string) => void;
   voiceMode?: boolean;
@@ -25,6 +26,7 @@ export default function Chat({
   topic,
   messages,
   concepts,
+  sessionMastery = 0,
   isStreaming,
   onSend,
   voiceMode = false,
@@ -36,12 +38,13 @@ export default function Chat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const overallMastery =
-    concepts.length > 0
+  const overallMastery = sessionMastery > 0
+    ? Math.round(sessionMastery)
+    : concepts.length > 0
       ? Math.round(
-          concepts.reduce((sum, c) => sum + c.mastery_score, 0) /
-            concepts.length,
-        )
+        concepts.reduce((sum, c) => sum + c.mastery_score, 0) /
+        concepts.length,
+      )
       : 0;
 
   const handleFinalTranscript = useCallback(
@@ -119,11 +122,10 @@ export default function Chat({
               variant="ghost"
               onClick={isListening ? stopListening : handleStartListening}
               disabled={isStreaming || !isSupported}
-              className={`h-9 w-9 rounded-xl shrink-0 relative ${
-                isListening
-                  ? "bg-red-500 hover:bg-red-600 text-white"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              className={`h-9 w-9 rounded-xl shrink-0 relative ${isListening
+                ? "bg-red-500 hover:bg-red-600 text-white"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
               title={
                 !isSupported
                   ? "Speech recognition not supported in this browser"
@@ -169,11 +171,10 @@ export default function Chat({
           <div className="flex items-center gap-2">
             <button
               onClick={() => onVoiceModeChange?.(!voiceMode)}
-              className={`p-1.5 rounded-lg transition-colors ${
-                voiceMode
-                  ? "bg-primary/10 text-primary border border-primary/20"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
+              className={`p-1.5 rounded-lg transition-colors ${voiceMode
+                ? "bg-primary/10 text-primary border border-primary/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
               title={voiceMode ? "Voice mode on" : "Voice mode off"}
             >
               {voiceMode ? (
@@ -251,11 +252,10 @@ export default function Chat({
             )}
             <button
               onClick={() => onVoiceModeChange?.(!voiceMode)}
-              className={`p-1.5 rounded-lg transition-colors ${
-                voiceMode
-                  ? "bg-primary/10 text-primary border border-primary/20"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              }`}
+              className={`p-1.5 rounded-lg transition-colors ${voiceMode
+                ? "bg-primary/10 text-primary border border-primary/20"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
               title={voiceMode ? "Voice mode on" : "Voice mode off"}
             >
               {voiceMode ? (

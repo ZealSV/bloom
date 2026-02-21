@@ -24,6 +24,8 @@ export default function AppPage() {
     setConcepts,
     setGaps,
     setRelationships,
+    sessionMastery,
+    setSessionMastery,
     fetchSessions,
     createSession,
     loadSession,
@@ -74,8 +76,8 @@ export default function AppPage() {
                   concept.mastery_score >= 80
                     ? "mastered"
                     : concept.mastery_score >= 40
-                    ? "tested"
-                    : "identified",
+                      ? "tested"
+                      : "identified",
               };
             } else {
               updated.push({
@@ -87,8 +89,8 @@ export default function AppPage() {
                   concept.mastery_score >= 80
                     ? "mastered"
                     : concept.mastery_score >= 40
-                    ? "tested"
-                    : "identified",
+                      ? "tested"
+                      : "identified",
                 parent_concept: null,
                 updated_at: new Date().toISOString(),
               });
@@ -142,8 +144,12 @@ export default function AppPage() {
           return updated;
         });
       }
+
+      if (analysis.overall_session_mastery !== undefined) {
+        setSessionMastery(analysis.overall_session_mastery);
+      }
     },
-    [currentSession, setConcepts, setGaps, setRelationships]
+    [currentSession, setConcepts, setGaps, setRelationships, setSessionMastery]
   );
 
   const { sendMessage, isStreaming } = useStreamingChat({
@@ -230,6 +236,7 @@ export default function AppPage() {
         topic={currentSession.topic}
         messages={messages}
         concepts={concepts}
+        sessionMastery={sessionMastery}
         isStreaming={isStreaming}
         onSend={handleSendMessage}
         voiceMode={voiceMode}

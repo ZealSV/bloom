@@ -54,6 +54,7 @@ export function useSession() {
   const [concepts, setConcepts] = useState<Concept[]>([]);
   const [gaps, setGaps] = useState<Gap[]>([]);
   const [relationships, setRelationships] = useState<ConceptRelationship[]>([]);
+  const [sessionMastery, setSessionMastery] = useState<number>(0);
   const [loading, setLoading] = useState(false);
 
   const fetchSessions = useCallback(async () => {
@@ -142,6 +143,8 @@ export function useSession() {
     setConcepts,
     setGaps,
     setRelationships,
+    sessionMastery,
+    setSessionMastery,
     fetchSessions,
     createSession,
     loadSession,
