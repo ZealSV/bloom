@@ -114,22 +114,110 @@ export interface bloomAnalysis {
   next_probe_strategy: string;
 }
 
+function findFirstJsonObject(text: string): { start: number; end: number } | null {
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escape = true;
+        continue;
+      }
+      if (ch === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === "\"") {
+      inString = true;
+      continue;
+    }
+
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth += 1;
+      continue;
+    }
+
+    if (ch === "}") {
+      if (depth > 0) {
+        depth -= 1;
+        if (depth === 0 && start !== -1) {
+          return { start, end: i };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+function extractJsonText(
+  responseText: string,
+): { jsonText: string; start: number; end: number } | null {
+  const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
+  if (jsonMatch && typeof jsonMatch.index === "number") {
+    return {
+      jsonText: jsonMatch[1],
+      start: jsonMatch.index,
+      end: jsonMatch.index + jsonMatch[0].length - 1,
+    };
+  }
+
+  const trimmed = responseText.trim();
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      JSON.parse(trimmed);
+      return { jsonText: trimmed, start: 0, end: responseText.length - 1 };
+    } catch {
+      // Fall through to brace matching.
+    }
+  }
+
+  const match = findFirstJsonObject(responseText);
+  if (!match) return null;
+
+  const candidate = responseText.slice(match.start, match.end + 1);
+  try {
+    JSON.parse(candidate);
+    return { jsonText: candidate, start: match.start, end: match.end };
+  } catch {
+    return null;
+  }
+}
+
 export function parsebloomResponse(responseText: string): {
   chatMessage: string;
   analysis: bloomAnalysis | null;
 } {
-  const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/);
-
-  let chatMessage = responseText;
+  let chatMessage = responseText.trim();
   let analysis: bloomAnalysis | null = null;
 
-  if (jsonMatch) {
-    chatMessage = responseText.slice(0, jsonMatch.index).trim();
-    try {
-      analysis = JSON.parse(jsonMatch[1]);
-    } catch {
-      analysis = null;
-    }
+  const extracted = extractJsonText(responseText);
+  if (!extracted) {
+    return { chatMessage, analysis };
+  }
+
+  try {
+    analysis = JSON.parse(extracted.jsonText);
+  } catch {
+    analysis = null;
+  }
+
+  if (analysis) {
+    const before = responseText.slice(0, extracted.start).trim();
+    const after = responseText.slice(extracted.end + 1).trim();
+    chatMessage = [before, after].filter(Boolean).join("\n").trim();
   }
 
   return { chatMessage, analysis };
@@ -167,8 +255,63 @@ export async function* streambloomResponse(
 
   const { chatMessage, analysis } = parsebloomResponse(fullResponse);
 
-  if (analysis) {
-    yield { type: "analysis" as const, content: analysis };
+  let finalAnalysis = analysis;
+
+  if (!finalAnalysis) {
+    try {
+      const transcript = [
+        ...history.map((m) => `${m.role === "user" ? "Teacher" : "bloom"}: ${m.content}`),
+        `Teacher: ${userMessage}`,
+        `bloom: ${chatMessage}`,
+      ].join("\n");
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `Analyze this teaching conversation transcript. Output ONLY a JSON block with your analysis:
+
+\`\`\`json
+{
+  "concepts_discussed": [
+    { "name": "concept name", "mastery_score": 0-100, "evidence": "brief explanation" }
+  ],
+  "gaps_detected": [
+    { "concept": "concept name", "description": "what the teacher seems confused about" }
+  ],
+  "concept_relationships": [
+    { "from": "concept A", "to": "concept B", "relationship": "requires|supports|contradicts|example_of", "reasoning": "brief explanation of why these concepts are connected" }
+  ],
+  "overall_session_mastery": 0-100
+}
+\`\`\`
+
+MASTERY SCORING RUBRIC (be strict):
+- 0-20: Teacher only named the concept
+- 20-40: Surface-level explanation
+- 40-60: Decent explanation but untested
+- 60-80: Survived probing questions with real understanding
+- 80-100: Deep mastery with edge cases and connections`,
+          },
+          {
+            role: "user",
+            content: `Here is the transcript of a teaching session:\n\n${transcript}`,
+          },
+        ],
+        max_tokens: 700,
+      });
+
+      const responseText = completion.choices[0]?.message?.content || "";
+      const { analysis: fallbackAnalysis } = parsebloomResponse(responseText);
+      finalAnalysis = fallbackAnalysis;
+    } catch {
+      finalAnalysis = null;
+    }
+  }
+
+  if (finalAnalysis) {
+    yield { type: "analysis" as const, content: finalAnalysis };
   }
 
   yield { type: "done" as const, chatMessage, fullResponse };

@@ -18,6 +18,8 @@ interface ChatProps {
   onSend: (message: string) => void;
   voiceMode?: boolean;
   onVoiceModeChange?: (enabled: boolean) => void;
+  ttsEnabled?: boolean;
+  onTtsEnabledChange?: (enabled: boolean) => void;
   isSpeaking?: boolean;
   onStopSpeaking?: () => void;
 }
@@ -31,6 +33,8 @@ export default function Chat({
   onSend,
   voiceMode = false,
   onVoiceModeChange,
+  ttsEnabled = true,
+  onTtsEnabledChange,
   isSpeaking = false,
   onStopSpeaking,
 }: ChatProps) {
@@ -72,9 +76,22 @@ export default function Chat({
     startListening();
   }, [onStopSpeaking, startListening]);
 
+  const handleToggleTts = useCallback(() => {
+    if (ttsEnabled) {
+      onStopSpeaking?.();
+    }
+    onTtsEnabledChange?.(!ttsEnabled);
+  }, [ttsEnabled, onStopSpeaking, onTtsEnabledChange]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  useEffect(() => {
+    if (ttsEnabled && !isSpeaking && !isStreaming) {
+      inputRef.current?.focus();
+    }
+  }, [ttsEnabled, isSpeaking, isStreaming]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,20 +186,40 @@ export default function Chat({
         {/* Minimal header */}
         <div className="px-4 py-3 flex items-center justify-end shrink-0">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => onVoiceModeChange?.(!voiceMode)}
-              className={`p-1.5 rounded-lg transition-colors ${voiceMode
-                ? "bg-primary/10 text-primary border border-primary/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              title={voiceMode ? "Voice mode on" : "Voice mode off"}
-            >
-              {voiceMode ? (
-                <Volume2 className="h-4 w-4" />
-              ) : (
-                <VolumeX className="h-4 w-4" />
-              )}
-            </button>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                Mic
+              </span>
+              <button
+                onClick={() => onVoiceModeChange?.(!voiceMode)}
+                className={`p-1.5 rounded-lg transition-colors ${voiceMode
+                  ? "bg-primary/10 text-primary border border-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                title={voiceMode ? "Mic on" : "Mic off"}
+              >
+                {voiceMode ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+              </button>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                TTS
+              </span>
+              <button
+                onClick={handleToggleTts}
+                className={`p-1.5 rounded-lg transition-colors ${ttsEnabled
+                  ? "bg-primary/10 text-primary border border-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                title={ttsEnabled ? "TTS on" : "TTS off"}
+              >
+                {ttsEnabled ? (
+                  <Volume2 className="h-4 w-4" />
+                ) : (
+                  <VolumeX className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -235,35 +272,53 @@ export default function Chat({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {concepts.length > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full bg-primary"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${overallMastery}%` }}
-                    transition={{ duration: 0.5 }}
-                  />
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {overallMastery}%
-                </span>
+            <div className="flex items-center gap-2">
+              <div className="w-20 h-1.5 bg-muted rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full bg-primary"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${overallMastery}%` }}
+                  transition={{ duration: 0.5 }}
+                />
               </div>
-            )}
-            <button
-              onClick={() => onVoiceModeChange?.(!voiceMode)}
-              className={`p-1.5 rounded-lg transition-colors ${voiceMode
-                ? "bg-primary/10 text-primary border border-primary/20"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              title={voiceMode ? "Voice mode on" : "Voice mode off"}
-            >
-              {voiceMode ? (
-                <Volume2 className="h-4 w-4" />
-              ) : (
-                <VolumeX className="h-4 w-4" />
-              )}
-            </button>
+              <span className="text-xs text-muted-foreground">
+                {overallMastery}%
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                Mic
+              </span>
+              <button
+                onClick={() => onVoiceModeChange?.(!voiceMode)}
+                className={`p-1.5 rounded-lg transition-colors ${voiceMode
+                  ? "bg-primary/10 text-primary border border-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                title={voiceMode ? "Mic on" : "Mic off"}
+              >
+                {voiceMode ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+              </button>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                TTS
+              </span>
+              <button
+                onClick={handleToggleTts}
+                className={`p-1.5 rounded-lg transition-colors ${ttsEnabled
+                  ? "bg-primary/10 text-primary border border-primary/20"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                title={ttsEnabled ? "TTS on" : "TTS off"}
+              >
+                {ttsEnabled ? (
+                  <Volume2 className="h-4 w-4" />
+                ) : (
+                  <VolumeX className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -301,7 +356,7 @@ export default function Chat({
             </motion.div>
           )}
 
-          {isSpeaking && (
+          {ttsEnabled && isSpeaking && (
             <motion.div
               className="flex items-center gap-2 text-xs text-primary pl-11"
               initial={{ opacity: 0 }}

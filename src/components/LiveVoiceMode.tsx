@@ -144,7 +144,7 @@ export default function LiveVoiceMode({
         </div>
 
         {/* Center: Orb */}
-        <div className="flex-1 flex flex-col items-center justify-center pb-28">
+        <div className="flex-1 flex flex-col items-center justify-center pb-10">
           <div className="relative flex items-center justify-center">
             {/* Glow layer */}
             <motion.div
@@ -182,6 +182,28 @@ export default function LiveVoiceMode({
               {error}
             </motion.p>
           )}
+        </div>
+
+        {/* Live transcript */}
+        <div className="px-6 pb-6">
+          <div className="max-w-3xl mx-auto rounded-2xl border border-border bg-card/60 backdrop-blur px-4 py-3 h-36 overflow-y-auto">
+            {transcript.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Start talking — I&apos;ll show the transcript here.
+              </p>
+            ) : (
+              <div className="space-y-2 text-sm">
+                {transcript.slice(-6).map((item) => (
+                  <div key={item.timestamp} className="flex items-start gap-2">
+                    <span className="text-xs text-muted-foreground mt-0.5">
+                      {item.role === "student" ? "You" : "bloom"}
+                    </span>
+                    <p className="text-foreground leading-snug">{item.content}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </motion.div>
     </AnimatePresence>

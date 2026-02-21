@@ -46,12 +46,39 @@ export function useRealtimeVoice({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const transcriptRef = useRef<TranscriptMessage[]>([]);
   const currentBloomText = useRef("");
+  const responsePendingRef = useRef(false);
+  const responseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastStudentRef = useRef<{ text: string; at: number } | null>(null);
+
+  const waitForIceGathering = useCallback((pc: RTCPeerConnection, timeoutMs = 3000) => {
+    if (pc.iceGatheringState === "complete") return Promise.resolve();
+    return new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        pc.removeEventListener("icegatheringstatechange", onStateChange);
+        resolve();
+      }, timeoutMs);
+
+      const onStateChange = () => {
+        if (pc.iceGatheringState === "complete") {
+          clearTimeout(timeout);
+          pc.removeEventListener("icegatheringstatechange", onStateChange);
+          resolve();
+        }
+      };
+
+      pc.addEventListener("icegatheringstatechange", onStateChange);
+    });
+  }, []);
 
   const disconnect = useCallback(() => {
     // Stop timer
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
+    }
+    if (responseTimerRef.current) {
+      clearTimeout(responseTimerRef.current);
+      responseTimerRef.current = null;
     }
 
     // Stop mic
@@ -80,6 +107,7 @@ export function useRealtimeVoice({
     }
 
     setStatus("idle");
+    responsePendingRef.current = false;
   }, []);
 
   const connect = useCallback(async () => {
@@ -89,27 +117,53 @@ export function useRealtimeVoice({
     transcriptRef.current = [];
     setTranscript([]);
     currentBloomText.current = "";
+    responsePendingRef.current = false;
+    lastStudentRef.current = null;
 
     try {
-      // 1. Get ephemeral token
-      const tokenRes = await fetch("/api/realtime/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, voice: "shimmer" }),
-      });
+      const fail = (stage: string, err: unknown) => {
+        const message =
+          err instanceof Error ? err.message : String(err || "Unknown error");
+        setError(`${stage}: ${message}`);
+      };
 
-      if (!tokenRes.ok) {
-        const errData = await tokenRes.json().catch(() => ({}));
-        throw new Error(errData.details || errData.error || "Failed to create realtime session");
+      // 1. Get ephemeral token
+      let clientSecret = "";
+      try {
+        const tokenRes = await fetch("/api/realtime/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionId, voice: "shimmer" }),
+        });
+
+        if (!tokenRes.ok) {
+          const errData = await tokenRes.json().catch(() => ({}));
+          throw new Error(
+            errData.details || errData.error || "Failed to create realtime session"
+          );
+        }
+
+        const data = await tokenRes.json();
+        clientSecret = data.clientSecret;
+      } catch (err) {
+        fail("Token request failed", err);
+        throw err;
       }
 
-      const { clientSecret } = await tokenRes.json();
       if (!clientSecret) {
-        throw new Error("No client secret returned");
+        const err = new Error("No client secret returned");
+        fail("Token response invalid", err);
+        throw err;
       }
 
       // 2. Get microphone
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err) {
+        fail("Microphone access denied", err);
+        throw err;
+      }
       streamRef.current = stream;
 
       // 3. Create peer connection
@@ -145,9 +199,9 @@ export function useRealtimeVoice({
             },
             turn_detection: {
               type: "server_vad",
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 500,
+              threshold: 0.4,
+              prefix_padding_ms: 250,
+              silence_duration_ms: 600,
             },
           },
         };
@@ -167,10 +221,30 @@ export function useRealtimeVoice({
           switch (data.type) {
             case "input_audio_buffer.speech_started":
               setStatus("listening");
+              if (responseTimerRef.current) {
+                clearTimeout(responseTimerRef.current);
+                responseTimerRef.current = null;
+              }
               break;
 
             case "input_audio_buffer.speech_stopped":
               setStatus("thinking");
+              if (responseTimerRef.current) clearTimeout(responseTimerRef.current);
+              responseTimerRef.current = setTimeout(() => {
+                if (
+                  dcRef.current &&
+                  dcRef.current.readyState === "open" &&
+                  !responsePendingRef.current
+                ) {
+                  responsePendingRef.current = true;
+                  dcRef.current.send(
+                    JSON.stringify({
+                      type: "response.create",
+                      response: { modalities: ["audio", "text"] },
+                    })
+                  );
+                }
+              }, 700);
               break;
 
             case "response.audio_transcript.delta":
@@ -194,12 +268,40 @@ export function useRealtimeVoice({
             case "conversation.item.input_audio_transcription.completed": {
               const userText = data.transcript;
               if (userText?.trim()) {
-                transcriptRef.current.push({
-                  role: "student",
-                  content: userText.trim(),
-                  timestamp: Date.now(),
-                });
-                setTranscript([...transcriptRef.current]);
+                const normalized = userText.trim().toLowerCase().replace(/\s+/g, " ");
+                const now = Date.now();
+                const last = lastStudentRef.current;
+                const isDuplicate =
+                  last && last.text === normalized && now - last.at < 5000;
+
+                if (!isDuplicate) {
+                  transcriptRef.current.push({
+                    role: "student",
+                    content: userText.trim(),
+                    timestamp: now,
+                  });
+                  setTranscript([...transcriptRef.current]);
+                  lastStudentRef.current = { text: normalized, at: now };
+                }
+
+                if (
+                  dcRef.current &&
+                  dcRef.current.readyState === "open" &&
+                  !responsePendingRef.current
+                ) {
+                  if (responseTimerRef.current) {
+                    clearTimeout(responseTimerRef.current);
+                    responseTimerRef.current = null;
+                  }
+                  responsePendingRef.current = true;
+                  dcRef.current.send(
+                    JSON.stringify({
+                      type: "response.create",
+                      response: { modalities: ["audio", "text"] },
+                    })
+                  );
+                  setStatus("thinking");
+                }
               }
               break;
             }
@@ -210,6 +312,7 @@ export function useRealtimeVoice({
 
             case "response.done":
               setStatus("listening");
+              responsePendingRef.current = false;
               break;
 
             case "error":
@@ -225,28 +328,50 @@ export function useRealtimeVoice({
         setError("Data channel error");
       };
 
-      // 7. SDP exchange
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-
-      const sdpRes = await fetch(
-        "https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${clientSecret}`,
-            "Content-Type": "application/sdp",
-          },
-          body: offer.sdp,
+      pc.oniceconnectionstatechange = () => {
+        if (
+          pc.iceConnectionState === "failed" ||
+          pc.iceConnectionState === "disconnected"
+        ) {
+          setError(`ICE connection ${pc.iceConnectionState}`);
         }
-      );
+      };
 
-      if (!sdpRes.ok) {
-        throw new Error("SDP exchange failed");
+      pc.onconnectionstatechange = () => {
+        if (pc.connectionState === "failed") {
+          setError("Peer connection failed");
+        }
+      };
+
+      // 7. SDP exchange
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        await waitForIceGathering(pc);
+
+        const sdpRes = await fetch(
+          "https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${clientSecret}`,
+              "Content-Type": "application/sdp",
+            },
+            body: offer.sdp,
+          }
+        );
+
+        if (!sdpRes.ok) {
+          const errText = await sdpRes.text().catch(() => "");
+          throw new Error(`SDP exchange failed (${sdpRes.status}). ${errText}`);
+        }
+
+        const answerSdp = await sdpRes.text();
+        await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+      } catch (err) {
+        fail("Realtime SDP exchange failed", err);
+        throw err;
       }
-
-      const answerSdp = await sdpRes.text();
-      await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to connect";
