@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useTheme } from "next-themes";
-import { motion, useScroll, useTransform, useSpring, AnimatePresence, useInView } from "framer-motion";
+import { motion, useScroll, useTransform, useSpring } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import type { Concept } from "@/hooks/useSession";
 import { ArrowRight, MessageCircle, Sprout, GitFork, Zap } from "lucide-react";
 
 const gentle = { type: "spring" as const, stiffness: 200, damping: 20, mass: 1 };
@@ -202,11 +200,10 @@ function StickyHowItWorks() {
               </motion.div>
             </div>
           ))}
-          <div className="h-[80vh]" />
         </div>
 
-        <div className="hidden lg:block flex-1 sticky top-0 h-screen">
-          <div className="h-full flex items-center py-20">
+        <div className="hidden lg:block flex-1 sticky top-14 h-[calc(100vh-3.5rem)]">
+          <div className="h-full flex items-center py-16">
             <div className="relative w-full aspect-[4/5] max-h-[580px] rounded-[3rem] bg-card border border-border/50 overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-transparent opacity-50" />
               <motion.div style={{ scale: stageScale }} className="relative w-full h-full">
@@ -267,76 +264,267 @@ function ChatVisual() {
   );
 }
 
-function DiscoveryPlant({ concepts, subjectArea }: { concepts: Concept[]; subjectArea: string | null }) {
-  const [mastery, setMastery] = useState(0);
-  const width = 400;
-  const height = 400;
-  const groundY = 350;
-
-  useEffect(() => {
-    const totalMastery = concepts.length > 0 ? concepts.reduce((acc, c) => acc + c.mastery_score, 0) / concepts.length : 85;
-    let current = 0;
-    const interval = setInterval(() => { if (current < totalMastery) { current += 1; setMastery(current); } else { clearInterval(interval); } }, 30);
-    return () => clearInterval(interval);
-  }, [concepts]);
-
-  return (
-    <div className="w-full relative aspect-square max-w-[400px] mx-auto overflow-hidden rounded-[2.5rem] bg-gradient-to-b from-primary/5 to-primary/10 border border-primary/20 shadow-2xl">
-      <div className="absolute top-6 left-6 z-20">
-        <div className="bg-background/40 backdrop-blur-md border border-primary/20 px-4 py-2 rounded-2xl shadow-lg">
-          <p className="text-[10px] font-mono text-primary font-bold uppercase tracking-widest mb-1">Mastery Index</p>
-          <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-outfit font-black text-foreground">{Math.round(mastery)}</span>
-            <span className="text-sm font-bold text-primary">%</span>
-          </div>
-          <motion.div className="h-1 bg-primary/20 rounded-full mt-2 overflow-hidden" initial={{ width: 0 }} animate={{ width: "100%" }}>
-            <motion.div className="h-full bg-primary" animate={{ width: `${mastery}%` }} transition={{ duration: 0.5 }} />
-          </motion.div>
-        </div>
-      </div>
-      <div className="absolute top-6 right-6 z-20">
-        <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-wider bg-background/20 px-3 py-1 rounded-full border border-border/10 backdrop-blur-sm">{subjectArea || "Core Concepts"}</div>
-      </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full">
-        <defs>
-          <radialGradient id="bloomHighlight" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <g>
-          <motion.path d={`M ${width / 2} ${groundY} Q ${width / 2 - 10} ${groundY - 100} ${width / 2 + 5} ${groundY - 200}`} fill="none" stroke="var(--primary)" strokeWidth="4" strokeLinecap="round" initial={{ pathLength: 0, opacity: 0 }} whileInView={{ pathLength: 1, opacity: 0.8 }} transition={{ duration: 2, ease: "easeOut" }} />
-          <motion.path d={`M ${width / 2 - 4} ${groundY - 120} Q ${width / 2 - 50} ${groundY - 150} ${width / 2 - 80} ${groundY - 180}`} fill="none" stroke="var(--primary)" strokeWidth="3" strokeLinecap="round" initial={{ pathLength: 0, opacity: 0 }} whileInView={{ pathLength: 1, opacity: 0.6 }} transition={{ duration: 1.5, delay: 1, ease: "easeOut" }} />
-          <motion.path d={`M ${width / 2 + 3} ${groundY - 160} Q ${width / 2 + 60} ${groundY - 180} ${width / 2 + 90} ${groundY - 220}`} fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" initial={{ pathLength: 0, opacity: 0 }} whileInView={{ pathLength: 1, opacity: 0.5 }} transition={{ duration: 1.5, delay: 1.8, ease: "easeOut" }} />
-          <g transform={`translate(${width / 2 + 5}, ${groundY - 200})`}>
-            {[0, 72, 144, 216, 288].map((angle, i) => (
-              <motion.path key={i} d="M 0 0 Q 15 -25 30 0 Q 15 25 0 0" fill="var(--primary)" initial={{ scale: 0, opacity: 0 }} whileInView={{ scale: 1, opacity: 0.9 }} transition={{ delay: 2.2 + i * 0.1, type: "spring" }} style={{ transform: `rotate(${angle}deg)`, transformOrigin: '0 0' }} />
-            ))}
-            <motion.circle r="8" fill="white" initial={{ scale: 0 }} whileInView={{ scale: 1 }} transition={{ delay: 2.8 }} />
-          </g>
-        </g>
-      </svg>
-    </div>
-  );
-}
 
 function GardenVisual() {
-  const mockConcepts = [
-    { id: 1, session_id: "demo", name: "Non-locality", mastery_score: 92, status: "mastered", parent_concept: null, updated_at: new Date().toISOString() },
-    { id: 2, session_id: "demo", name: "Wave Collapse", mastery_score: 85, status: "mastered", parent_concept: null, updated_at: new Date().toISOString() },
+  const width = 320;
+  const height = 260;
+  const groundY = 210;
+
+  const flowers = [
+    { name: "Superposition", mastery: 15, x: 45 },
+    { name: "Wave Function", mastery: 35, x: 105 },
+    { name: "Entanglement", mastery: 55, x: 165 },
+    { name: "Non-locality", mastery: 78, x: 225 },
+    { name: "Wave Collapse", mastery: 95, x: 285 },
   ];
 
+  const petal = "#4ade80";
+  const center = "#fbbf24";
+  const stem = "#22c55e";
+
   return (
-    <div className="w-full h-full flex items-center justify-center relative">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(74,222,128,0.1)_0%,transparent_65%)] pointer-events-none" />
-      <div className="relative z-10 w-full max-w-[320px]">
-        <DiscoveryPlant concepts={mockConcepts} subjectArea="Quantum Physics" />
-        <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 1 }} className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
-        </motion.div>
-      </div>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <motion.div key={i} className="absolute w-2 h-2 rounded-full bg-primary/10 blur-xl" animate={{ y: [0, -100, 0], x: [0, Math.random() * 50 - 25, 0], opacity: [0, 0.5, 0] }} transition={{ duration: 10 + Math.random() * 5, repeat: Infinity, delay: i * 2 }} style={{ left: `${20 + i * 15}%`, top: "60%" }} />
-      ))}
+    <div className="w-full h-full flex items-center justify-center">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full max-w-[320px]" style={{ overflow: "visible" }}>
+        <defs>
+          <linearGradient id="lp-sky" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#050805" />
+            <stop offset="60%" stopColor="#0a120a" />
+            <stop offset="100%" stopColor="#111c11" />
+          </linearGradient>
+          <linearGradient id="lp-ground" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1a2e1a" />
+            <stop offset="100%" stopColor="#0a0f0a" />
+          </linearGradient>
+          <radialGradient id="lp-glow" cx="50%" cy="80%" r="50%">
+            <stop offset="0%" stopColor="rgba(74,222,128,0.15)" />
+            <stop offset="100%" stopColor="transparent" />
+          </radialGradient>
+        </defs>
+
+        {/* Sky */}
+        <rect width={width} height={height} rx={16} fill="url(#lp-sky)" />
+
+        {/* Glow */}
+        <motion.ellipse
+          cx={width / 2}
+          cy={groundY}
+          rx={140}
+          ry={60}
+          fill="url(#lp-glow)"
+          animate={{ opacity: [0.4, 0.7, 0.4] }}
+          transition={{ duration: 5, repeat: Infinity }}
+        />
+
+        {/* Stars */}
+        {Array.from({ length: 15 }).map((_, i) => (
+          <motion.circle
+            key={`star-${i}`}
+            cx={15 + ((i * 47 + 13) % (width - 30))}
+            cy={10 + ((i * 31 + 7) % (groundY - 40))}
+            r={0.5 + (i % 3) * 0.4}
+            fill="#fff"
+            animate={{ opacity: [0.15, 0.5, 0.15] }}
+            transition={{ duration: 3 + (i % 4), repeat: Infinity, delay: (i % 5) * 0.8 }}
+          />
+        ))}
+
+        {/* Ground */}
+        <rect x={0} y={groundY} width={width} height={height - groundY} fill="url(#lp-ground)" />
+        <line x1={0} y1={groundY} x2={width} y2={groundY} stroke="rgba(74,222,128,0.2)" strokeWidth={1} />
+
+        {/* Grass tufts */}
+        {Array.from({ length: 10 }).map((_, i) => (
+          <motion.line
+            key={`g-${i}`}
+            x1={16 + i * 30 + (i % 3) * 5}
+            y1={groundY}
+            x2={16 + i * 30 + (i % 3) * 5 + (i % 2 === 0 ? 3 : -3)}
+            y2={groundY - 4 - (i % 3) * 2}
+            stroke="rgba(74,222,128,0.15)"
+            strokeWidth={1}
+            strokeLinecap="round"
+            animate={{ rotate: [-2, 2, -2] }}
+            transition={{ duration: 2 + (i % 3) * 0.5, repeat: Infinity }}
+            style={{ transformOrigin: `${16 + i * 30 + (i % 3) * 5}px ${groundY}px` }}
+          />
+        ))}
+
+        {/* Flowers at different stages */}
+        {flowers.map((f, i) => {
+          const stage = f.mastery <= 20 ? "seed" : f.mastery <= 40 ? "sprout" : f.mastery <= 60 ? "growing" : f.mastery <= 80 ? "blooming" : "full";
+
+          return (
+            <g key={f.name}>
+              {/* Seed */}
+              {stage === "seed" && (
+                <motion.ellipse
+                  cx={f.x} cy={groundY + 4} rx={4} ry={3} fill={stem}
+                  initial={{ scale: 0 }} animate={{ scale: 1 }}
+                  transition={{ delay: i * 0.15 }}
+                />
+              )}
+
+              {/* Sprout */}
+              {stage === "sprout" && (
+                <g>
+                  <motion.line x1={f.x} y1={groundY} x2={f.x} y2={groundY - 22}
+                    stroke={stem} strokeWidth={2} strokeLinecap="round"
+                    initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.6, delay: i * 0.15 }}
+                  />
+                  <motion.ellipse cx={f.x + 5} cy={groundY - 18} rx={4} ry={2.5}
+                    fill={stem} opacity={0.7}
+                    initial={{ scale: 0 }} animate={{ scale: 1, rotate: -30 }}
+                    transition={{ delay: 0.3 + i * 0.15 }}
+                    style={{ transformOrigin: `${f.x}px ${groundY - 18}px` }}
+                  />
+                </g>
+              )}
+
+              {/* Growing */}
+              {stage === "growing" && (
+                <g>
+                  <motion.line x1={f.x} y1={groundY} x2={f.x} y2={groundY - 42}
+                    stroke={stem} strokeWidth={2.5} strokeLinecap="round"
+                    initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.6, delay: i * 0.15 }}
+                  />
+                  <motion.ellipse cx={f.x + 7} cy={groundY - 22} rx={6} ry={3}
+                    fill={stem} opacity={0.7}
+                    initial={{ scale: 0 }} animate={{ scale: 1, rotate: -25 }}
+                    transition={{ delay: 0.3 + i * 0.15 }}
+                    style={{ transformOrigin: `${f.x}px ${groundY - 22}px` }}
+                  />
+                  <motion.ellipse cx={f.x - 7} cy={groundY - 30} rx={6} ry={3}
+                    fill={stem} opacity={0.7}
+                    initial={{ scale: 0 }} animate={{ scale: 1, rotate: 25 }}
+                    transition={{ delay: 0.4 + i * 0.15 }}
+                    style={{ transformOrigin: `${f.x}px ${groundY - 30}px` }}
+                  />
+                  <motion.circle cx={f.x} cy={groundY - 44} r={4}
+                    fill={petal} opacity={0.6}
+                    initial={{ scale: 0 }} animate={{ scale: 1 }}
+                    transition={{ delay: 0.5 + i * 0.15, type: "spring" }}
+                  />
+                </g>
+              )}
+
+              {/* Blooming */}
+              {stage === "blooming" && (
+                <g>
+                  <motion.line x1={f.x} y1={groundY} x2={f.x} y2={groundY - 55}
+                    stroke={stem} strokeWidth={2.5} strokeLinecap="round"
+                    initial={{ pathLength: 0 }} animate={{ pathLength: 1 }}
+                  />
+                  <motion.ellipse cx={f.x + 8} cy={groundY - 26} rx={7} ry={3.5}
+                    fill={stem} opacity={0.8}
+                    initial={{ scale: 0 }} animate={{ scale: 1 }}
+                    style={{ transformOrigin: `${f.x}px ${groundY - 26}px`, rotate: -25 }}
+                  />
+                  <motion.ellipse cx={f.x - 8} cy={groundY - 36} rx={7} ry={3.5}
+                    fill={stem} opacity={0.8}
+                    initial={{ scale: 0 }} animate={{ scale: 1 }}
+                    style={{ transformOrigin: `${f.x}px ${groundY - 36}px`, rotate: 25 }}
+                  />
+                  {[0, 60, 120, 180, 240, 300].map((angle) => (
+                    <motion.path
+                      key={angle}
+                      d={`M ${f.x} ${groundY - 58} Q ${f.x + Math.cos(((angle - 20) * Math.PI) / 180) * 12} ${groundY - 58 + Math.sin(((angle - 20) * Math.PI) / 180) * 12} ${f.x + Math.cos((angle * Math.PI) / 180) * 16} ${groundY - 58 + Math.sin((angle * Math.PI) / 180) * 16} Q ${f.x + Math.cos(((angle + 20) * Math.PI) / 180) * 12} ${groundY - 58 + Math.sin(((angle + 20) * Math.PI) / 180) * 12} ${f.x} ${groundY - 58}`}
+                      fill={petal}
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 0.8 }}
+                      transition={{ delay: 0.3 + (angle / 360) * 0.3, type: "spring", stiffness: 100 }}
+                      style={{ transformOrigin: `${f.x}px ${groundY - 58}px` }}
+                    />
+                  ))}
+                  <motion.circle cx={f.x} cy={groundY - 58} r={5} fill={center}
+                    animate={{ scale: [1, 1.15, 1] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                </g>
+              )}
+
+              {/* Full bloom */}
+              {stage === "full" && (
+                <g>
+                  <motion.circle cx={f.x} cy={groundY - 72} r={20} fill={petal}
+                    animate={{ opacity: [0.05, 0.15, 0.05] }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                  />
+                  <motion.g
+                    animate={{ rotate: [-1.5, 1.5, -1.5] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                    style={{ transformOrigin: `${f.x}px ${groundY}px` }}
+                  >
+                    <line x1={f.x} y1={groundY} x2={f.x} y2={groundY - 68}
+                      stroke={stem} strokeWidth={3} strokeLinecap="round"
+                    />
+                    <ellipse cx={f.x + 10} cy={groundY - 28} rx={10} ry={4}
+                      fill={stem} opacity={0.9}
+                      transform={`rotate(-20, ${f.x + 10}, ${groundY - 28})`}
+                    />
+                    <ellipse cx={f.x - 10} cy={groundY - 40} rx={10} ry={4}
+                      fill={stem} opacity={0.9}
+                      transform={`rotate(20, ${f.x - 10}, ${groundY - 40})`}
+                    />
+                    {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
+                      <motion.path
+                        key={angle}
+                        d={`M ${f.x} ${groundY - 72} Q ${f.x + Math.cos(((angle - 22) * Math.PI) / 180) * 18} ${groundY - 72 + Math.sin(((angle - 22) * Math.PI) / 180) * 18} ${f.x + Math.cos((angle * Math.PI) / 180) * 24} ${groundY - 72 + Math.sin((angle * Math.PI) / 180) * 24} Q ${f.x + Math.cos(((angle + 22) * Math.PI) / 180) * 18} ${groundY - 72 + Math.sin(((angle + 22) * Math.PI) / 180) * 18} ${f.x} ${groundY - 72}`}
+                        fill={petal}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 0.9 }}
+                        transition={{ delay: (angle / 360) * 0.4, type: "spring" }}
+                        style={{ transformOrigin: `${f.x}px ${groundY - 72}px` }}
+                      />
+                    ))}
+                    <motion.circle cx={f.x} cy={groundY - 72} r={7} fill={center}
+                      animate={{ scale: [1, 1.1, 1] }}
+                      transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                    {/* Particles */}
+                    {[0, 1, 2].map((pi) => (
+                      <motion.circle
+                        key={`p-${pi}`}
+                        cx={f.x + (pi - 1) * 15}
+                        cy={groundY - 72 + (pi - 1) * 10}
+                        r={1}
+                        fill="#fff"
+                        animate={{ y: [0, -18, -36], opacity: [0, 0.8, 0] }}
+                        transition={{ duration: 2.5, repeat: Infinity, delay: pi * 0.7 }}
+                      />
+                    ))}
+                  </motion.g>
+                </g>
+              )}
+
+              {/* Labels */}
+              <text
+                x={f.x}
+                y={groundY + 18}
+                textAnchor="middle"
+                fill="#94a3b8"
+                fontSize={7}
+                fontFamily="Inter, sans-serif"
+              >
+                {f.name}
+              </text>
+              <text
+                x={f.x}
+                y={groundY + 27}
+                textAnchor="middle"
+                fill={petal}
+                fontSize={6}
+                fontWeight="600"
+                fontFamily="Inter, sans-serif"
+                opacity={0.6}
+              >
+                {f.mastery}%
+              </text>
+            </g>
+          );
+        })}
+      </svg>
     </div>
   );
 }
