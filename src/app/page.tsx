@@ -426,17 +426,29 @@ function GardenVisual() {
                     initial={{ scale: 0 }} animate={{ scale: 1 }}
                     style={{ transformOrigin: `${f.x}px ${groundY - 36}px`, rotate: 25 }}
                   />
-                  {[0, 60, 120, 180, 240, 300].map((angle) => (
-                    <motion.path
-                      key={angle}
-                      d={`M ${f.x} ${groundY - 58} Q ${f.x + Math.cos(((angle - 20) * Math.PI) / 180) * 12} ${groundY - 58 + Math.sin(((angle - 20) * Math.PI) / 180) * 12} ${f.x + Math.cos((angle * Math.PI) / 180) * 16} ${groundY - 58 + Math.sin((angle * Math.PI) / 180) * 16} Q ${f.x + Math.cos(((angle + 20) * Math.PI) / 180) * 12} ${groundY - 58 + Math.sin(((angle + 20) * Math.PI) / 180) * 12} ${f.x} ${groundY - 58}`}
-                      fill={petal}
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 0.8 }}
-                      transition={{ delay: 0.3 + (angle / 360) * 0.3, type: "spring", stiffness: 100 }}
-                      style={{ transformOrigin: `${f.x}px ${groundY - 58}px` }}
-                    />
-                  ))}
+                  {[0, 60, 120, 180, 240, 300].map((angle) => {
+                    const rad = (angle * Math.PI) / 180;
+                    const radM20 = ((angle - 20) * Math.PI) / 180;
+                    const radP20 = ((angle + 20) * Math.PI) / 180;
+                    const x1 = (f.x + Math.cos(radM20) * 12).toFixed(3);
+                    const y1 = (groundY - 58 + Math.sin(radM20) * 12).toFixed(3);
+                    const x2 = (f.x + Math.cos(rad) * 16).toFixed(3);
+                    const y2 = (groundY - 58 + Math.sin(rad) * 16).toFixed(3);
+                    const x3 = (f.x + Math.cos(radP20) * 12).toFixed(3);
+                    const y3 = (groundY - 58 + Math.sin(radP20) * 12).toFixed(3);
+
+                    return (
+                      <motion.path
+                        key={angle}
+                        d={`M ${f.x} ${groundY - 58} Q ${x1} ${y1} ${x2} ${y2} Q ${x3} ${y3} ${f.x} ${groundY - 58}`}
+                        fill={petal}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 0.8 }}
+                        transition={{ delay: 0.3 + (angle / 360) * 0.3, type: "spring", stiffness: 100 }}
+                        style={{ transformOrigin: `${f.x}px ${groundY - 58}px` }}
+                      />
+                    );
+                  })}
                   <motion.circle cx={f.x} cy={groundY - 58} r={5} fill={center}
                     animate={{ scale: [1, 1.15, 1] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
@@ -467,17 +479,29 @@ function GardenVisual() {
                       fill={stem} opacity={0.9}
                       transform={`rotate(20, ${f.x - 10}, ${groundY - 40})`}
                     />
-                    {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
-                      <motion.path
-                        key={angle}
-                        d={`M ${f.x} ${groundY - 72} Q ${f.x + Math.cos(((angle - 22) * Math.PI) / 180) * 18} ${groundY - 72 + Math.sin(((angle - 22) * Math.PI) / 180) * 18} ${f.x + Math.cos((angle * Math.PI) / 180) * 24} ${groundY - 72 + Math.sin((angle * Math.PI) / 180) * 24} Q ${f.x + Math.cos(((angle + 22) * Math.PI) / 180) * 18} ${groundY - 72 + Math.sin(((angle + 22) * Math.PI) / 180) * 18} ${f.x} ${groundY - 72}`}
-                        fill={petal}
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 0.9 }}
-                        transition={{ delay: (angle / 360) * 0.4, type: "spring" }}
-                        style={{ transformOrigin: `${f.x}px ${groundY - 72}px` }}
-                      />
-                    ))}
+                    {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => {
+                      const rad = (angle * Math.PI) / 180;
+                      const radM22 = ((angle - 22) * Math.PI) / 180;
+                      const radP22 = ((angle + 22) * Math.PI) / 180;
+                      const x1 = (f.x + Math.cos(radM22) * 18).toFixed(3);
+                      const y1 = (groundY - 72 + Math.sin(radM22) * 18).toFixed(3);
+                      const x2 = (f.x + Math.cos(rad) * 24).toFixed(3);
+                      const y2 = (groundY - 72 + Math.sin(rad) * 24).toFixed(3);
+                      const x3 = (f.x + Math.cos(radP22) * 18).toFixed(3);
+                      const y3 = (groundY - 72 + Math.sin(radP22) * 18).toFixed(3);
+
+                      return (
+                        <motion.path
+                          key={angle}
+                          d={`M ${f.x} ${groundY - 72} Q ${x1} ${y1} ${x2} ${y2} Q ${x3} ${y3} ${f.x} ${groundY - 72}`}
+                          fill={petal}
+                          initial={{ scale: 0, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 0.9 }}
+                          transition={{ delay: (angle / 360) * 0.4, type: "spring" }}
+                          style={{ transformOrigin: `${f.x}px ${groundY - 72}px` }}
+                        />
+                      );
+                    })}
                     <motion.circle cx={f.x} cy={groundY - 72} r={7} fill={center}
                       animate={{ scale: [1, 1.1, 1] }}
                       transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
