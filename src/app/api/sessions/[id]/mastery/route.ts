@@ -1,0 +1,28 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+
+  const [conceptsRes, gapsRes] = await Promise.all([
+    supabase.from("concepts").select("*").eq("session_id", id),
+    supabase.from("gaps").select("*").eq("session_id", id),
+  ]);
+
+  const concepts = conceptsRes.data || [];
+  const gaps = gapsRes.data || [];
+
+  const overallMastery =
+    concepts.length > 0
+      ? concepts.reduce((sum, c) => sum + c.mastery_score, 0) / concepts.length
+      : 0;
+
+  return NextResponse.json({
+    concepts,
+    gaps,
+    overallMastery: Math.round(overallMastery),
+  });
+}
