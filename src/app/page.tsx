@@ -145,7 +145,7 @@ export default function LandingPage() {
             <h2 className="font-outfit text-2xl sm:text-4xl font-bold text-foreground tracking-tight mb-4">Ready to teach?</h2>
             <p className="text-muted-foreground mb-8 max-w-sm mx-auto">Discover what you truly know. Start your first session.</p>
             <Button size="lg" className="h-11 px-8 text-sm" asChild>
-              <Link href="/auth/signup">Get started — it&apos;s free<ArrowRight className="ml-2 h-4 w-4" /></Link>
+              <Link href="/auth/signup">Get started<ArrowRight className="ml-2 h-4 w-4" /></Link>
             </Button>
           </motion.div>
         </div>
