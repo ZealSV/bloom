@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { sessionId, voice = "nova" } = await req.json();
+  const { sessionId, voice = "shimmer" } = await req.json();
 
   // Load topic for context
   let topic = "";

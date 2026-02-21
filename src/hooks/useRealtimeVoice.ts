@@ -95,7 +95,7 @@ export function useRealtimeVoice({
       const tokenRes = await fetch("/api/realtime/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, voice: "nova" }),
+        body: JSON.stringify({ sessionId, voice: "shimmer" }),
       });
 
       if (!tokenRes.ok) {
