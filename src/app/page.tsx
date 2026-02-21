@@ -271,11 +271,11 @@ function GardenVisual() {
   const groundY = 210;
 
   const flowers = [
-    { name: "Superposition", mastery: 15, x: 45 },
-    { name: "Wave Function", mastery: 35, x: 105 },
-    { name: "Entanglement", mastery: 55, x: 165 },
-    { name: "Non-locality", mastery: 78, x: 225 },
-    { name: "Wave Collapse", mastery: 95, x: 285 },
+    { name: "Sprout", mastery: 15, x: 45 },
+    { name: "Seedling", mastery: 35, x: 105 },
+    { name: "Budding", mastery: 55, x: 165 },
+    { name: "Flowering", mastery: 78, x: 225 },
+    { name: "Ripening", mastery: 95, x: 285 },
   ];
 
   const petal = "#4ade80";

@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sprout } from "lucide-react";
 import type { Concept } from "@/hooks/useSession";
 import { getFlowerStage, getFlowerColors } from "@/utils/gardenHelpers";
@@ -277,25 +277,30 @@ function Flower({
             />
 
             {/* Ambient magic particles */}
-            {Array.from({ length: 3 }).map((_, pi) => (
-              <motion.circle
-                key={`particle-${pi}`}
-                cx={x + (Math.random() - 0.5) * 40}
-                cy={groundY - 84 + (Math.random() - 0.5) * 40}
-                r={1}
-                fill="#fff"
-                animate={{
-                  y: [0, -20, -40],
-                  x: [0, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 20],
-                  opacity: [0, 0.8, 0]
-                }}
-                transition={{
-                  duration: 2 + Math.random() * 2,
-                  repeat: Infinity,
-                  delay: Math.random() * 2
-                }}
-              />
-            ))}
+            {[0, 1, 2].map((pi) => {
+              const offsetX = ((pi * 23 + index * 37) % 40) - 20;
+              const offsetY = ((pi * 41 + index * 13) % 40) - 20;
+              const moveX = ((pi * 17 + index * 19) % 20) - 10;
+              return (
+                <motion.circle
+                  key={`particle-${pi}`}
+                  cx={x + offsetX}
+                  cy={groundY - 84 + offsetY}
+                  r={1}
+                  fill="#fff"
+                  animate={{
+                    y: [0, -20, -40],
+                    x: [0, moveX, moveX * 2],
+                    opacity: [0, 0.8, 0]
+                  }}
+                  transition={{
+                    duration: 2 + (pi % 2),
+                    repeat: Infinity,
+                    delay: pi * 0.5
+                  }}
+                />
+              );
+            })}
           </motion.g>
         </g>
       )}
@@ -354,6 +359,9 @@ export default function KnowledgeGarden({
   concepts,
   subjectArea,
 }: KnowledgeGardenProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   const width = 400;
   const height = 220;
   const groundY = 180;
@@ -423,26 +431,26 @@ export default function KnowledgeGarden({
             />
 
             {/* Stars/Pollen with depth of field */}
-            {Array.from({ length: 20 }).map((_, i) => (
+            {mounted && Array.from({ length: 20 }).map((_, i) => (
               <motion.circle
                 key={i}
-                cx={Math.random() * width}
-                cy={Math.random() * (groundY - 20)}
-                r={Math.random() * 1.2 + 0.4}
+                cx={(i * 137 + 41) % width}
+                cy={(i * 67 + 13) % (groundY - 20)}
+                r={0.4 + (i % 3) * 0.4}
                 fill="#fff"
                 animate={{
                   opacity: [0.1, 0.4, 0.1],
-                  y: [0, (Math.random() - 0.5) * 15, 0],
-                  x: [0, (Math.random() - 0.5) * 5, 0],
+                  y: [0, (i % 2 === 0 ? 5 : -5), 0],
+                  x: [0, (i % 3 === 0 ? 3 : -3), 0],
                 }}
                 transition={{
-                  duration: 3 + Math.random() * 4,
+                  duration: 3 + (i % 4),
                   repeat: Infinity,
-                  delay: Math.random() * 5,
+                  delay: (i % 5),
                 }}
                 style={{
-                  filter: `blur(${Math.random() * 1.5}px)`,
-                  opacity: 0.3 + Math.random() * 0.4
+                  filter: `blur(${(i % 2) * 1}px)`,
+                  opacity: 0.3 + (i % 4) * 0.1
                 }}
               />
             ))}
@@ -465,28 +473,28 @@ export default function KnowledgeGarden({
             />
 
             {/* Grass tufts */}
-            {Array.from({ length: 12 }).map((_, i) => (
-              <motion.line
-                key={`grass-${i}`}
-                x1={20 + i * 32 + Math.random() * 10}
-                y1={groundY}
-                x2={
-                  20 +
-                  i * 32 +
-                  Math.random() * 10 +
-                  (Math.random() > 0.5 ? 3 : -3)
-                }
-                y2={groundY - 4 - Math.random() * 4}
-                stroke="rgba(74,222,128,0.15)"
-                strokeWidth={1}
-                strokeLinecap="round"
-                animate={{ rotate: [-2, 2, -2] }}
-                transition={{ duration: 2 + Math.random(), repeat: Infinity }}
-                style={{
-                  transformOrigin: `${20 + i * 32}px ${groundY}px`,
-                }}
-              />
-            ))}
+            {Array.from({ length: 12 }).map((_, i) => {
+              const xPos = 20 + i * 32 + (i * 7) % 10;
+              const gHeight = 4 + (i * 11) % 5;
+              const slant = (i % 2 === 0 ? 3 : -3);
+              return (
+                <motion.line
+                  key={`grass-${i}`}
+                  x1={xPos}
+                  y1={groundY}
+                  x2={xPos + slant}
+                  y2={groundY - gHeight}
+                  stroke="rgba(74,222,128,0.15)"
+                  strokeWidth={1}
+                  strokeLinecap="round"
+                  animate={{ rotate: [-2, 2, -2] }}
+                  transition={{ duration: 2 + (i % 2), repeat: Infinity }}
+                  style={{
+                    transformOrigin: `${xPos}px ${groundY}px`,
+                  }}
+                />
+              );
+            })}
 
             {/* Flowers */}
             {concepts.map((concept, i) => (
