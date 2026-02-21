@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
 import crypto from "crypto";
 
 // POST /api/sessions — Create new teaching session
 export async function POST(req: NextRequest) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { topic, subject_area } = await req.json();
 
   if (!topic) {
@@ -14,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await supabase
     .from("sessions")
-    .insert({ id, topic, subject_area: subject_area || null })
+    .insert({ id, topic, subject_area: subject_area || null, user_id: user.id })
     .select()
     .single();
 
@@ -25,8 +29,12 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(data, { status: 201 });
 }
 
-// GET /api/sessions — List all sessions
+// GET /api/sessions — List user's sessions
 export async function GET() {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { data, error } = await supabase
     .from("sessions")
     .select("*")

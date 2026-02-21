@@ -64,12 +64,27 @@ After your conversational response, output a JSON block (fenced with \`\`\`json)
     {
       "from": "concept A",
       "to": "concept B",
-      "relationship": "requires|supports|contradicts|example_of"
+      "relationship": "requires|supports|contradicts|example_of",
+      "reasoning": "brief explanation of why these concepts are connected"
     }
   ],
   "overall_session_mastery": 0-100,
   "next_probe_strategy": "what to probe next and why"
 }
+
+MASTERY SCORING RUBRIC (be strict — do NOT inflate scores):
+- 0-20: Teacher only named the concept or gave a vague one-liner with no real explanation
+- 20-40: Surface-level explanation — covers the basics but missing key mechanisms, details, or reasoning
+- 40-60: Decent explanation with some depth, but hasn't been tested with probing questions yet
+- 60-80: Teacher survived probing questions, corrected your wrong inferences, and showed real understanding
+- 80-100: Deep mastery — teacher explained edge cases, caught your wrong inferences, connected to related concepts
+
+CRITICAL SCORING RULES:
+- A first-time explanation should NEVER score above 50, no matter how good — they haven't been tested yet
+- Mastery must be EARNED through multiple exchanges, not given for a single explanation
+- Only increase scores when the teacher successfully handles your probing questions or wrong inferences
+- If the teacher agrees with your wrong inference, DROP the score by at least 15 points
+- Use the "evidence" field to justify every score with specific examples from the conversation
 
 The JSON analysis is parsed by the system and NOT shown to the user. Only your conversational response is shown.`;
 
@@ -88,6 +103,7 @@ export interface RelationshipAnalysis {
   from: string;
   to: string;
   relationship: "requires" | "supports" | "contradicts" | "example_of";
+  reasoning?: string;
 }
 
 export interface bloomAnalysis {

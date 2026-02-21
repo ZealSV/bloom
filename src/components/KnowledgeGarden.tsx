@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { Sprout } from "lucide-react";
 import type { Concept } from "@/hooks/useSession";
 import { getFlowerStage, getFlowerColors } from "@/utils/gardenHelpers";
 
@@ -150,10 +151,10 @@ function Flower({
             rx={8}
             ry={4}
             fill={colors.stem}
-            opacity={0.7}
+            opacity={0.8}
             initial={{ scale: 0 }}
-            animate={{ scale: 1, rotate: -25 }}
-            style={{ transformOrigin: `${x}px ${groundY - 30}px` }}
+            animate={{ scale: 1 }}
+            style={{ transformOrigin: `${x}px ${groundY - 30}px`, rotate: -25 }}
           />
           <motion.ellipse
             cx={x - 10}
@@ -161,35 +162,35 @@ function Flower({
             rx={8}
             ry={4}
             fill={colors.stem}
-            opacity={0.7}
+            opacity={0.8}
             initial={{ scale: 0 }}
-            animate={{ scale: 1, rotate: 25 }}
-            style={{ transformOrigin: `${x}px ${groundY - 42}px` }}
+            animate={{ scale: 1 }}
+            style={{ transformOrigin: `${x}px ${groundY - 42}px`, rotate: 25 }}
           />
-          {/* Petals */}
+          {/* Petals with organic curves and depth */}
           {[0, 60, 120, 180, 240, 300].map((angle) => (
-            <motion.ellipse
+            <motion.path
               key={angle}
-              cx={x + Math.cos((angle * Math.PI) / 180) * 10}
-              cy={groundY - 68 + Math.sin((angle * Math.PI) / 180) * 10}
-              rx={6}
-              ry={4}
+              d={`M ${x} ${groundY - 68} Q ${x + Math.cos(((angle - 20) * Math.PI) / 180) * 15} ${groundY - 68 + Math.sin(((angle - 20) * Math.PI) / 180) * 15} ${x + Math.cos((angle * Math.PI) / 180) * 20} ${groundY - 68 + Math.sin((angle * Math.PI) / 180) * 20} Q ${x + Math.cos(((angle + 20) * Math.PI) / 180) * 15} ${groundY - 68 + Math.sin(((angle + 20) * Math.PI) / 180) * 15} ${x} ${groundY - 68}`}
               fill={colors.petal}
-              opacity={0.8}
-              initial={{ scale: 0 }}
-              animate={{ scale: 1, rotate: angle }}
-              transition={{ delay: 0.3 + (angle / 360) * 0.3, type: "spring" }}
-              style={{ transformOrigin: `${x}px ${groundY - 68}px` }}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 0.8 }}
+              transition={{ delay: 0.3 + (angle / 360) * 0.3, type: "spring", stiffness: 100 }}
+              style={{ transformOrigin: `${x}px ${groundY - 68}px`, rotate: angle }}
             />
           ))}
+          {/* Pulsing Center */}
           <motion.circle
             cx={x}
             cy={groundY - 68}
-            r={5}
+            r={6}
             fill={colors.center}
             initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.6, type: "spring" }}
+            animate={{ scale: [1, 1.15, 1] }}
+            transition={{
+              scale: { duration: 2, repeat: Infinity, ease: "easeInOut" },
+              default: { delay: 0.6, type: "spring" }
+            }}
           />
         </g>
       )}
@@ -197,10 +198,20 @@ function Flower({
       {/* Full bloom */}
       {stage === "full" && (
         <g>
-          {/* Sway animation on stem */}
+          {/* Subtle glow behind full blooms */}
+          <motion.circle
+            cx={x}
+            cy={groundY - 84}
+            r={25}
+            fill={colors.petal}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0.05, 0.15, 0.05] }}
+            transition={{ duration: 3, repeat: Infinity }}
+          />
+
           <motion.g
-            animate={{ rotate: [-1, 1, -1] }}
-            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            animate={{ rotate: [-1.5, 1.5, -1.5] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             style={{ transformOrigin: `${x}px ${groundY}px` }}
           >
             <line
@@ -212,122 +223,126 @@ function Flower({
               strokeWidth={3}
               strokeLinecap="round"
             />
-            {/* Leaves */}
+            {/* Leaves with detail */}
             <ellipse
               cx={x + 12}
               cy={groundY - 30}
-              rx={10}
+              rx={12}
               ry={5}
               fill={colors.stem}
-              opacity={0.8}
-              transform={`rotate(-20, ${x}, ${groundY - 30})`}
+              opacity={0.9}
+              transform={`rotate(-20, ${x + 12}, ${groundY - 30})`}
             />
             <ellipse
               cx={x - 12}
               cy={groundY - 45}
-              rx={10}
+              rx={12}
               ry={5}
               fill={colors.stem}
-              opacity={0.8}
-              transform={`rotate(20, ${x}, ${groundY - 45})`}
+              opacity={0.9}
+              transform={`rotate(20, ${x - 12}, ${groundY - 45})`}
             />
-            <ellipse
-              cx={x + 8}
-              cy={groundY - 58}
-              rx={7}
-              ry={3.5}
-              fill={colors.stem}
-              opacity={0.6}
-              transform={`rotate(-15, ${x}, ${groundY - 58})`}
-            />
-            {/* Large petals */}
+
+            {/* Double layered petals for richness - Organic paths */}
             {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
-              <motion.ellipse
-                key={angle}
-                cx={x + Math.cos((angle * Math.PI) / 180) * 14}
-                cy={groundY - 84 + Math.sin((angle * Math.PI) / 180) * 14}
-                rx={9}
-                ry={5}
-                fill={colors.petal}
-                opacity={0.9}
-                transform={`rotate(${angle}, ${x}, ${groundY - 84})`}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: (angle / 360) * 0.4, type: "spring" }}
-              />
+              <g key={angle}>
+                {/* Outer petals */}
+                <motion.path
+                  d={`M ${x} ${groundY - 84} Q ${x + Math.cos(((angle - 22) * Math.PI) / 180) * 22} ${groundY - 84 + Math.sin(((angle - 22) * Math.PI) / 180) * 22} ${x + Math.cos((angle * Math.PI) / 180) * 28} ${groundY - 84 + Math.sin((angle * Math.PI) / 180) * 28} Q ${x + Math.cos(((angle + 22) * Math.PI) / 180) * 22} ${groundY - 84 + Math.sin(((angle + 22) * Math.PI) / 180) * 22} ${x} ${groundY - 84}`}
+                  fill={colors.petal}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 0.9 }}
+                  transition={{ delay: (angle / 360) * 0.4, type: "spring" }}
+                  style={{ transformOrigin: `${x}px ${groundY - 84}px`, rotate: angle }}
+                />
+                {/* Inner smaller petals */}
+                <motion.path
+                  d={`M ${x} ${groundY - 84} Q ${x + Math.cos(((angle - 15) * Math.PI) / 180) * 12} ${groundY - 84 + Math.sin(((angle - 15) * Math.PI) / 180) * 12} ${x + Math.cos((angle * Math.PI) / 180) * 16} ${groundY - 84 + Math.sin((angle * Math.PI) / 180) * 16} Q ${x + Math.cos(((angle + 15) * Math.PI) / 180) * 12} ${groundY - 84 + Math.sin(((angle + 15) * Math.PI) / 180) * 12} ${x} ${groundY - 84}`}
+                  fill={colors.center}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 0.5 }}
+                  transition={{ delay: 0.2 + (angle / 360) * 0.4, type: "spring" }}
+                  style={{ transformOrigin: `${x}px ${groundY - 84}px`, rotate: angle }}
+                />
+              </g>
             ))}
-            {/* Glow effect */}
+
             <motion.circle
               cx={x}
               cy={groundY - 84}
-              r={20}
-              fill={colors.petal}
-              opacity={0.08}
-              animate={{ r: [18, 22, 18], opacity: [0.06, 0.12, 0.06] }}
-              transition={{ duration: 2, repeat: Infinity }}
+              r={9}
+              fill={colors.center}
+              animate={{ scale: [1, 1.1, 1], filter: ["brightness(1)", "brightness(1.2)", "brightness(1)"] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
             />
-            <circle cx={x} cy={groundY - 84} r={7} fill={colors.center} />
-            {/* Sparkle */}
-            <motion.circle
-              cx={x + 15}
-              cy={groundY - 95}
-              r={1.5}
-              fill="#fbbf24"
-              animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
-            />
-            <motion.circle
-              cx={x - 12}
-              cy={groundY - 90}
-              r={1}
-              fill="#fbbf24"
-              animate={{ opacity: [0, 1, 0], scale: [0.5, 1.2, 0.5] }}
-              transition={{ duration: 2.5, repeat: Infinity, delay: 1 }}
-            />
+
+            {/* Ambient magic particles */}
+            {Array.from({ length: 3 }).map((_, pi) => (
+              <motion.circle
+                key={`particle-${pi}`}
+                cx={x + (Math.random() - 0.5) * 40}
+                cy={groundY - 84 + (Math.random() - 0.5) * 40}
+                r={1}
+                fill="#fff"
+                animate={{
+                  y: [0, -20, -40],
+                  x: [0, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 20],
+                  opacity: [0, 0.8, 0]
+                }}
+                transition={{
+                  duration: 2 + Math.random() * 2,
+                  repeat: Infinity,
+                  delay: Math.random() * 2
+                }}
+              />
+            ))}
           </motion.g>
         </g>
       )}
 
       {/* Tooltip */}
       {hovered && (
-        <motion.g initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
+        <motion.g initial={{ opacity: 0, y: 5, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}>
           <rect
-            x={x - 50}
+            x={x - 60}
             y={
               groundY -
-              (stage === "full" ? 120 : stage === "blooming" ? 100 : 85)
+              (stage === "full" ? 130 : stage === "blooming" ? 110 : 95)
             }
-            width={100}
-            height={28}
-            rx={6}
-            fill="#1a2a1a"
-            stroke="rgba(74,222,128,0.2)"
+            width={120}
+            height={32}
+            rx={8}
+            fill="rgba(10, 20, 10, 0.95)"
+            stroke="rgba(74, 222, 128, 0.3)"
             strokeWidth={1}
+            className="shadow-2xl"
           />
           <text
             x={x}
             y={
               groundY -
-              (stage === "full" ? 107 : stage === "blooming" ? 87 : 72)
+              (stage === "full" ? 113 : stage === "blooming" ? 93 : 78)
             }
             textAnchor="middle"
-            fill="#e2e8f0"
-            fontSize={10}
-            fontFamily="Inter, sans-serif"
+            fill="#fff"
+            fontSize={11}
+            fontWeight="500"
+            fontFamily="Outfit, sans-serif"
           >
             {concept.name}
           </text>
           <text
             x={x}
             y={
-              groundY - (stage === "full" ? 95 : stage === "blooming" ? 75 : 60)
+              groundY - (stage === "full" ? 101 : stage === "blooming" ? 81 : 66)
             }
             textAnchor="middle"
             fill="#4ade80"
             fontSize={9}
+            fontWeight="600"
             fontFamily="Inter, sans-serif"
           >
-            {Math.round(concept.mastery_score)}% mastery
+            {Math.round(concept.mastery_score)}% PROFICIENCY
           </text>
         </motion.g>
       )}
@@ -366,7 +381,7 @@ export default function KnowledgeGarden({
         {concepts.length === 0 ? (
           <div className="flex items-center justify-center h-40">
             <div className="text-center">
-              <span className="text-2xl opacity-30">🌱</span>
+              <Sprout className="h-6 w-6 text-muted-foreground/30 mx-auto" />
               <p className="text-xs text-muted-foreground mt-1">
                 Start teaching to grow your garden
               </p>
@@ -378,40 +393,56 @@ export default function KnowledgeGarden({
             className="w-full"
             style={{ minHeight: 180 }}
           >
-            {/* Sky gradient */}
+            {/* Sky background */}
             <defs>
               <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#0a0f0a" />
-                <stop offset="100%" stopColor="#111a11" />
+                <stop offset="0%" stopColor="#050805" />
+                <stop offset="60%" stopColor="#0a120a" />
+                <stop offset="100%" stopColor="#111c11" />
               </linearGradient>
               <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#1a2a1a" />
-                <stop offset="100%" stopColor="#0f1a0f" />
+                <stop offset="0%" stopColor="#1a2e1a" />
+                <stop offset="100%" stopColor="#0a0f0a" />
               </linearGradient>
+              <radialGradient id="bloomGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stopColor="rgba(74, 222, 128, 0.15)" />
+                <stop offset="100%" stopColor="transparent" />
+              </radialGradient>
             </defs>
 
             <rect width={width} height={height} fill="url(#sky)" />
 
-            {/* Stars */}
-            {[
-              [30, 20],
-              [120, 35],
-              [250, 15],
-              [340, 40],
-              [80, 45],
-              [300, 25],
-            ].map(([sx, sy], i) => (
+            {/* Bioluminescent "Mist" */}
+            <motion.circle
+              cx={width / 2}
+              cy={groundY}
+              r={120}
+              fill="url(#bloomGlow)"
+              animate={{ opacity: [0.4, 0.7, 0.4], scale: [1, 1.1, 1] }}
+              transition={{ duration: 5, repeat: Infinity }}
+            />
+
+            {/* Stars/Pollen with depth of field */}
+            {Array.from({ length: 20 }).map((_, i) => (
               <motion.circle
                 key={i}
-                cx={sx}
-                cy={sy}
-                r={0.8}
-                fill="#94a3b8"
-                animate={{ opacity: [0.2, 0.6, 0.2] }}
+                cx={Math.random() * width}
+                cy={Math.random() * (groundY - 20)}
+                r={Math.random() * 1.2 + 0.4}
+                fill="#fff"
+                animate={{
+                  opacity: [0.1, 0.4, 0.1],
+                  y: [0, (Math.random() - 0.5) * 15, 0],
+                  x: [0, (Math.random() - 0.5) * 5, 0],
+                }}
                 transition={{
-                  duration: 2 + i * 0.5,
+                  duration: 3 + Math.random() * 4,
                   repeat: Infinity,
-                  delay: i * 0.3,
+                  delay: Math.random() * 5,
+                }}
+                style={{
+                  filter: `blur(${Math.random() * 1.5}px)`,
+                  opacity: 0.3 + Math.random() * 0.4
                 }}
               />
             ))}
@@ -429,7 +460,7 @@ export default function KnowledgeGarden({
               y1={groundY}
               x2={width}
               y2={groundY}
-              stroke="rgba(74,222,128,0.1)"
+              stroke="rgba(74,222,128,0.2)"
               strokeWidth={1}
             />
 

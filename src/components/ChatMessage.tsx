@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { motion } from "framer-motion";
 
 interface ChatMessageProps {
@@ -24,7 +25,7 @@ export default function ChatMessage({
     >
       {isbloom && (
         <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-1">
-          <span className="text-sm">🌱</span>
+          <Image src="/bloomlogo.png" alt="bloom" width={16} height={16} className="rounded-sm" />
         </div>
       )}
 

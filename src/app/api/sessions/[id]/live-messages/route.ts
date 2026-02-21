@@ -1,10 +1,18 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import OpenAI from "openai";
 import {
-  streambloomResponse,
-  type ChatMessage,
+  parsebloomResponse,
   type bloomAnalysis,
 } from "@/lib/ai-engine";
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+interface TranscriptMessage {
+  role: "student" | "bloom";
+  content: string;
+  timestamp: number;
+}
 
 export async function POST(
   req: NextRequest,
@@ -12,36 +20,27 @@ export async function POST(
 ) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return new Response("Unauthorized", { status: 401 });
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: sessionId } = await params;
-  const { message } = await req.json();
+  const { messages } = (await req.json()) as {
+    messages: TranscriptMessage[];
+  };
 
-  if (!message) {
-    return new Response("Message is required", { status: 400 });
+  if (!messages?.length) {
+    return NextResponse.json({ error: "No messages" }, { status: 400 });
   }
 
-  // Save the student's message
-  await supabase.from("messages").insert({
+  // Bulk insert messages
+  const rows = messages.map((m) => ({
     session_id: sessionId,
-    role: "student",
-    content: message,
-  });
-
-  // Get conversation history
-  const { data: history } = await supabase
-    .from("messages")
-    .select("role, content")
-    .eq("session_id", sessionId)
-    .order("created_at", { ascending: true });
-
-  const chatHistory: ChatMessage[] = (history || []).map((m) => ({
-    role: m.role === "student" ? ("user" as const) : ("assistant" as const),
+    role: m.role,
     content: m.content,
   }));
 
+  await supabase.from("messages").insert(rows);
+
   async function processAnalysis(analysis: bloomAnalysis) {
-    // Upsert concepts
     for (const concept of analysis.concepts_discussed) {
       const { data: existing } = await supabase
         .from("concepts")
@@ -79,7 +78,6 @@ export async function POST(
       }
     }
 
-    // Insert new gaps
     for (const gap of analysis.gaps_detected) {
       const { data: existing } = await supabase
         .from("gaps")
@@ -98,7 +96,6 @@ export async function POST(
       }
     }
 
-    // Insert concept relationships
     for (const rel of analysis.concept_relationships) {
       const { data: existing } = await supabase
         .from("concept_relationships")
@@ -120,61 +117,58 @@ export async function POST(
     }
   }
 
-  // Stream response
-  const encoder = new TextEncoder();
+  // Run post-session analysis
+  const transcript = messages
+    .map((m) => `${m.role === "student" ? "Teacher" : "bloom"}: ${m.content}`)
+    .join("\n");
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      try {
-        let chatMessage = "";
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `Analyze this teaching conversation transcript. Output ONLY a JSON block with your analysis:
 
-        for await (const event of streambloomResponse(chatHistory, message)) {
-          if (event.type === "text") {
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ type: "text", content: event.content })}\n\n`,
-              ),
-            );
-          } else if (event.type === "analysis") {
-            // Process analysis in background
-            await processAnalysis(event.content);
-            controller.enqueue(
-              encoder.encode(
-                `data: ${JSON.stringify({ type: "analysis", content: event.content })}\n\n`,
-              ),
-            );
-          } else if (event.type === "done") {
-            chatMessage = event.chatMessage;
+\`\`\`json
+{
+  "concepts_discussed": [
+    { "name": "concept name", "mastery_score": 0-100, "evidence": "brief explanation" }
+  ],
+  "gaps_detected": [
+    { "concept": "concept name", "description": "what the teacher seems confused about" }
+  ],
+  "concept_relationships": [
+    { "from": "concept A", "to": "concept B", "relationship": "requires|supports|contradicts|example_of", "reasoning": "brief explanation of why these concepts are connected" }
+  ],
+  "overall_session_mastery": 0-100
+}
+\`\`\`
 
-            // Save bloom's response (chat part only)
-            await supabase.from("messages").insert({
-              session_id: sessionId,
-              role: "bloom",
-              content: chatMessage,
-            });
+MASTERY SCORING RUBRIC (be strict):
+- 0-20: Teacher only named the concept
+- 20-40: Surface-level explanation
+- 40-60: Decent explanation but untested
+- 60-80: Survived probing questions with real understanding
+- 80-100: Deep mastery with edge cases and connections`,
+        },
+        {
+          role: "user",
+          content: `Here is the transcript of a live voice teaching session:\n\n${transcript}`,
+        },
+      ],
+    });
 
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: "done", chatMessage })}\n\n`),
-            );
-          }
-        }
-      } catch (error) {
-        controller.enqueue(
-          encoder.encode(
-            `data: ${JSON.stringify({ type: "error", content: "Something went wrong. Please try again." })}\n\n`,
-          ),
-        );
-      } finally {
-        controller.close();
-      }
-    },
-  });
+    const responseText = completion.choices[0]?.message?.content || "";
+    const { analysis } = parsebloomResponse(responseText);
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
+    if (analysis) {
+      await processAnalysis(analysis);
+      return NextResponse.json({ success: true, analysis });
+    }
+
+    return NextResponse.json({ success: true, analysis: null });
+  } catch {
+    return NextResponse.json({ success: true, analysis: null });
+  }
 }

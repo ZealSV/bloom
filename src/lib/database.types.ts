@@ -12,6 +12,7 @@ export type Database = {
       sessions: {
         Row: {
           id: string;
+          user_id: string;
           topic: string;
           subject_area: string | null;
           created_at: string;
@@ -20,6 +21,7 @@ export type Database = {
         };
         Insert: {
           id?: string;
+          user_id: string;
           topic: string;
           subject_area?: string | null;
           created_at?: string;
@@ -28,6 +30,7 @@ export type Database = {
         };
         Update: {
           id?: string;
+          user_id?: string;
           topic?: string;
           subject_area?: string | null;
           updated_at?: string;
@@ -147,6 +150,7 @@ export type Database = {
           from_concept: string;
           to_concept: string;
           relationship: string;
+          reasoning: string | null;
         };
         Insert: {
           id?: number;
@@ -154,6 +158,7 @@ export type Database = {
           from_concept: string;
           to_concept: string;
           relationship: string;
+          reasoning?: string | null;
         };
         Update: {
           id?: number;
@@ -161,6 +166,7 @@ export type Database = {
           from_concept?: string;
           to_concept?: string;
           relationship?: string;
+          reasoning?: string | null;
         };
         Relationships: [
           {

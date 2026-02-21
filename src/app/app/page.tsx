@@ -4,13 +4,13 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/hooks/useSession";
 import { useStreamingChat } from "@/hooks/useStreamingChat";
+import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import Layout from "@/components/Layout";
 import SessionHistory from "@/components/SessionHistory";
-import TopicPicker from "@/components/TopicPicker";
+import TopicPicker, { type TeachingMode } from "@/components/TopicPicker";
 import Chat from "@/components/Chat";
-import KnowledgeGarden from "@/components/KnowledgeGarden";
-import MasteryDashboard from "@/components/MasteryDashboard";
-import ConceptGraph from "@/components/ConceptGraph";
+import LiveVoiceMode from "@/components/LiveVoiceMode";
+import type { TranscriptMessage } from "@/hooks/useRealtimeVoice";
 import { createClient } from "@/lib/supabase-browser";
 
 export default function AppPage() {
@@ -19,24 +19,26 @@ export default function AppPage() {
     currentSession,
     messages,
     concepts,
-    gaps,
-    relationships,
     loading,
     setMessages,
     setConcepts,
     setGaps,
     setRelationships,
+    sessionMastery,
+    setSessionMastery,
     fetchSessions,
     createSession,
     loadSession,
     deleteSession,
   } = useSession();
 
-  const [panelTab, setPanelTab] = useState("garden");
   const [showPicker, setShowPicker] = useState(true);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [isLiveMode, setIsLiveMode] = useState(false);
   const [user, setUser] = useState<any>(null);
   const router = useRouter();
   const supabase = createClient();
+  const { speak, stop: stopSpeaking, isSpeaking } = useTextToSpeech();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -47,6 +49,15 @@ export default function AppPage() {
       }
     });
   }, [supabase, router]);
+
+  const handleComplete = useCallback(
+    (text: string) => {
+      if (voiceMode) {
+        speak(text);
+      }
+    },
+    [voiceMode, speak]
+  );
 
   const handleAnalysis = useCallback(
     (analysis: any) => {
@@ -65,8 +76,8 @@ export default function AppPage() {
                   concept.mastery_score >= 80
                     ? "mastered"
                     : concept.mastery_score >= 40
-                    ? "tested"
-                    : "identified",
+                      ? "tested"
+                      : "identified",
               };
             } else {
               updated.push({
@@ -78,8 +89,8 @@ export default function AppPage() {
                   concept.mastery_score >= 80
                     ? "mastered"
                     : concept.mastery_score >= 40
-                    ? "tested"
-                    : "identified",
+                      ? "tested"
+                      : "identified",
                 parent_concept: null,
                 updated_at: new Date().toISOString(),
               });
@@ -133,14 +144,19 @@ export default function AppPage() {
           return updated;
         });
       }
+
+      if (analysis.overall_session_mastery !== undefined) {
+        setSessionMastery(analysis.overall_session_mastery);
+      }
     },
-    [currentSession, setConcepts, setGaps, setRelationships]
+    [currentSession, setConcepts, setGaps, setRelationships, setSessionMastery]
   );
 
   const { sendMessage, isStreaming } = useStreamingChat({
     sessionId: currentSession?.id || null,
     onMessage: setMessages,
     onAnalysis: handleAnalysis,
+    onComplete: handleComplete,
   });
 
   useEffect(() => {
@@ -149,9 +165,16 @@ export default function AppPage() {
 
   const handleNewSession = () => setShowPicker(true);
 
-  const handleStartSession = async (topic: string, subjectArea?: string) => {
+  const handleStartSession = async (
+    topic: string,
+    mode: TeachingMode,
+    subjectArea?: string
+  ) => {
     await createSession(topic, subjectArea);
     setShowPicker(false);
+    if (mode === "speak") {
+      setIsLiveMode(true);
+    }
   };
 
   const handleSelectSession = async (id: string) => {
@@ -162,6 +185,42 @@ export default function AppPage() {
   const handleSendMessage = (content: string) => {
     sendMessage(content, messages);
   };
+
+  const handleExitLiveMode = useCallback(
+    async (transcript: TranscriptMessage[]) => {
+      setIsLiveMode(false);
+
+      if (!currentSession || transcript.length === 0) return;
+
+      // Append transcript to local messages
+      const newMessages = transcript.map((t) => ({
+        session_id: currentSession.id,
+        role: t.role as "student" | "bloom",
+        content: t.content,
+        isStreaming: false,
+      }));
+      setMessages((prev) => [...prev, ...newMessages]);
+
+      // Persist and analyze
+      try {
+        const res = await fetch(
+          `/api/sessions/${currentSession.id}/live-messages`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: transcript }),
+          }
+        );
+        const data = await res.json();
+        if (data.analysis) {
+          handleAnalysis(data.analysis);
+        }
+      } catch {
+        // Silently fail — messages are still shown locally
+      }
+    },
+    [currentSession, setMessages, handleAnalysis]
+  );
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -177,48 +236,40 @@ export default function AppPage() {
         topic={currentSession.topic}
         messages={messages}
         concepts={concepts}
+        sessionMastery={sessionMastery}
         isStreaming={isStreaming}
         onSend={handleSendMessage}
+        voiceMode={voiceMode}
+        onVoiceModeChange={setVoiceMode}
+        isSpeaking={isSpeaking}
+        onStopSpeaking={stopSpeaking}
       />
     );
 
-  const panelContent = (() => {
-    switch (panelTab) {
-      case "garden":
-        return (
-          <KnowledgeGarden
-            concepts={concepts}
-            subjectArea={currentSession?.subject_area || null}
-          />
-        );
-      case "mastery":
-        return <MasteryDashboard concepts={concepts} gaps={gaps} />;
-      case "graph":
-        return (
-          <ConceptGraph concepts={concepts} relationships={relationships} />
-        );
-      default:
-        return null;
-    }
-  })();
-
   return (
-    <Layout
-      sidebar={
-        <SessionHistory
-          sessions={sessions}
-          currentSessionId={currentSession?.id || null}
-          onSelect={handleSelectSession}
-          onDelete={deleteSession}
-          onNew={handleNewSession}
+    <>
+      <Layout
+        sidebar={
+          <SessionHistory
+            sessions={sessions}
+            currentSessionId={currentSession?.id || null}
+            onSelect={handleSelectSession}
+            onDelete={deleteSession}
+            onNew={handleNewSession}
+          />
+        }
+        main={mainContent}
+        user={user}
+        onSignOut={handleSignOut}
+        onLogoClick={handleNewSession}
+      />
+      {isLiveMode && currentSession && (
+        <LiveVoiceMode
+          sessionId={currentSession.id}
+          topic={currentSession.topic}
+          onExit={handleExitLiveMode}
         />
-      }
-      main={mainContent}
-      panel={panelContent}
-      panelTab={panelTab}
-      onPanelTabChange={setPanelTab}
-      user={user}
-      onSignOut={handleSignOut}
-    />
+      )}
+    </>
   );
 }

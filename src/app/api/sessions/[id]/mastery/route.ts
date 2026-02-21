@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const { id } = await params;
 
   const [conceptsRes, gapsRes] = await Promise.all([
@@ -12,8 +16,8 @@ export async function GET(
     supabase.from("gaps").select("*").eq("session_id", id),
   ]);
 
-  const concepts = conceptsRes.data || [];
-  const gaps = gapsRes.data || [];
+  const concepts = conceptsRes.data ?? [];
+  const gaps = gapsRes.data ?? [];
 
   const overallMastery =
     concepts.length > 0
