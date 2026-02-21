@@ -2,9 +2,8 @@
 
 import { ReactNode, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { LayoutDashboard, LogOut, Menu } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
@@ -63,13 +62,6 @@ export default function Layout({
         </div>
 
         <div className="flex items-center gap-1">
-          {/* Dashboard link */}
-          <Button variant="ghost" size="sm" className="h-8 px-2" asChild>
-            <Link href="/app/dashboard">
-              <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
-            </Link>
-          </Button>
-
           <ThemeToggle />
 
           {/* User menu */}

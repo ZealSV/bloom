@@ -168,10 +168,9 @@ export default function AppPage() {
 
   const handleStartSession = async (
     topic: string,
-    mode: TeachingMode,
-    subjectArea?: string
+    mode: TeachingMode
   ) => {
-    await createSession(topic, subjectArea);
+    await createSession(topic);
     setShowPicker(false);
     if (mode === "speak") {
       setIsLiveMode(true);

@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, X, Sprout } from "lucide-react";
+import { Plus, X, Sprout, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Session } from "@/hooks/useSession";
 
@@ -45,7 +46,14 @@ export default function SessionHistory({
 }: SessionHistoryProps) {
   return (
     <div className="flex flex-col h-full">
-      <div className="p-3">
+      <div className="p-3 space-y-2">
+        <Link
+          href="/app/dashboard"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <LayoutDashboard className="h-4 w-4" />
+          Dashboard
+        </Link>
         <Button
           onClick={onNew}
           variant="outline"
