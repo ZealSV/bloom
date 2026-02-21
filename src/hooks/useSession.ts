@@ -44,6 +44,7 @@ export interface ConceptRelationship {
   from_concept: string;
   to_concept: string;
   relationship: string;
+  reasoning?: string | null;
 }
 
 export function useSession() {

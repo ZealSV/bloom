@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, BarChart3 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { Concept, Gap } from "@/hooks/useSession";
 
@@ -52,7 +52,7 @@ export default function MasteryDashboard({
 
       {concepts.length === 0 ? (
         <div className="rounded-xl bg-card border border-border p-6 text-center">
-          <span className="text-2xl opacity-30">📊</span>
+          <BarChart3 className="h-6 w-6 text-muted-foreground/30 mx-auto" />
           <p className="text-xs text-muted-foreground mt-1">
             Concepts will appear as you teach
           </p>

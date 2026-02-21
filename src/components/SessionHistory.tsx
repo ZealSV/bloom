@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Sprout } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Session } from "@/hooks/useSession";
 
@@ -109,7 +109,7 @@ export default function SessionHistory({
 
         {sessions.length === 0 && (
           <div className="text-center py-8 px-4">
-            <div className="text-2xl mb-2 opacity-40">🌱</div>
+            <Sprout className="h-6 w-6 text-muted-foreground/40 mx-auto mb-2" />
             <p className="text-xs text-muted-foreground">
               No sessions yet. Start teaching!
             </p>

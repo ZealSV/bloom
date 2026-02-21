@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { Sprout } from "lucide-react";
 import type { Concept } from "@/hooks/useSession";
 import { getFlowerStage, getFlowerColors } from "@/utils/gardenHelpers";
 
@@ -380,7 +381,7 @@ export default function KnowledgeGarden({
         {concepts.length === 0 ? (
           <div className="flex items-center justify-center h-40">
             <div className="text-center">
-              <span className="text-2xl opacity-30">🌱</span>
+              <Sprout className="h-6 w-6 text-muted-foreground/30 mx-auto" />
               <p className="text-xs text-muted-foreground mt-1">
                 Start teaching to grow your garden
               </p>

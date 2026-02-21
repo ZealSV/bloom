@@ -22,12 +22,28 @@ interface UseStreamingChatProps {
   sessionId: string | null;
   onMessage: (messages: Message[]) => void;
   onAnalysis: (analysis: bloomAnalysis) => void;
+  onComplete?: (text: string) => void;
+}
+
+/** Strip JSON analysis blocks from streaming content so they don't flash in the UI */
+function stripJsonBlock(text: string): string {
+  const jsonStart = text.indexOf("```json");
+  if (jsonStart !== -1) {
+    return text.slice(0, jsonStart).trim();
+  }
+  // Catch partial opening markers at the very end (e.g. "```j", "```")
+  const trailing = text.match(/`{1,3}[a-z]{0,4}$/);
+  if (trailing && trailing.index !== undefined && text.length - trailing.index < 10) {
+    return text.slice(0, trailing.index).trim();
+  }
+  return text;
 }
 
 export function useStreamingChat({
   sessionId,
   onMessage,
   onAnalysis,
+  onComplete,
 }: UseStreamingChatProps) {
   const [isStreaming, setIsStreaming] = useState(false);
 
@@ -88,22 +104,25 @@ export function useStreamingChat({
 
                 if (data.type === "text") {
                   bloomContent += data.content;
+                  const displayContent = stripJsonBlock(bloomContent);
                   const updated = [...newMessages];
                   updated[updated.length - 1] = {
                     ...bloomPlaceholder,
-                    content: bloomContent,
+                    content: displayContent,
                   };
                   onMessage([...updated]);
                 } else if (data.type === "analysis") {
                   onAnalysis(data.content);
                 } else if (data.type === "done") {
+                  const finalContent = data.chatMessage || bloomContent;
                   const updated = [...newMessages];
                   updated[updated.length - 1] = {
                     ...bloomPlaceholder,
-                    content: bloomContent,
+                    content: finalContent,
                     isStreaming: false,
                   };
                   onMessage([...updated]);
+                  onComplete?.(finalContent);
                 } else if (data.type === "error") {
                   const updated = [...newMessages];
                   updated[updated.length - 1] = {
@@ -132,7 +151,7 @@ export function useStreamingChat({
         setIsStreaming(false);
       }
     },
-    [sessionId, isStreaming, onMessage, onAnalysis],
+    [sessionId, isStreaming, onMessage, onAnalysis, onComplete],
   );
 
   return { sendMessage, isStreaming };
