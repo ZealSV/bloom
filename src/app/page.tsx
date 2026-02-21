@@ -332,7 +332,6 @@ function GardenVisual() {
       <div className="relative z-10 w-full max-w-[320px]">
         <DiscoveryPlant concepts={mockConcepts} subjectArea="Quantum Physics" />
         <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ delay: 1 }} className="absolute -bottom-8 left-1/2 -translate-x-1/2 whitespace-nowrap">
-          <p className="text-[10px] font-mono text-primary/40 uppercase tracking-[0.4em]">Observation Stage — Growth Cycle Active</p>
         </motion.div>
       </div>
       {Array.from({ length: 5 }).map((_, i) => (
