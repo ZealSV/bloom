@@ -34,6 +34,7 @@ export default function AppPage() {
 
   const [showPicker, setShowPicker] = useState(true);
   const [voiceMode, setVoiceMode] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [user, setUser] = useState<any>(null);
   const router = useRouter();
@@ -52,11 +53,11 @@ export default function AppPage() {
 
   const handleComplete = useCallback(
     (text: string) => {
-      if (voiceMode) {
+      if (ttsEnabled) {
         speak(text);
       }
     },
-    [voiceMode, speak]
+    [ttsEnabled, speak]
   );
 
   const handleAnalysis = useCallback(
@@ -241,6 +242,8 @@ export default function AppPage() {
         onSend={handleSendMessage}
         voiceMode={voiceMode}
         onVoiceModeChange={setVoiceMode}
+        ttsEnabled={ttsEnabled}
+        onTtsEnabledChange={setTtsEnabled}
         isSpeaking={isSpeaking}
         onStopSpeaking={stopSpeaking}
       />

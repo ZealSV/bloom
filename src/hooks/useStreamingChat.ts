@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import type { Message, Concept, Gap, ConceptRelationship } from "./useSession";
 
 interface bloomAnalysis {
@@ -46,6 +46,7 @@ export function useStreamingChat({
   onComplete,
 }: UseStreamingChatProps) {
   const [isStreaming, setIsStreaming] = useState(false);
+  const streamTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sendMessage = useCallback(
     async (content: string, currentMessages: Message[]) => {
@@ -89,6 +90,29 @@ export function useStreamingChat({
         let bloomContent = "";
         let buffer = "";
 
+        let lastEventAt = Date.now();
+        const timeoutMs = 15000;
+
+        const armTimeout = () => {
+          if (streamTimeoutRef.current) {
+            clearTimeout(streamTimeoutRef.current);
+          }
+          // eslint-disable-next-line @typescript-eslint/no-use-before-define
+          streamTimeoutRef.current = setTimeout(() => {
+            const updated = [...newMessages];
+            updated[updated.length - 1] = {
+              ...bloomPlaceholder,
+              content: bloomContent || "Hmm, I lost my train of thought. Try again?",
+              isStreaming: false,
+            };
+            onMessage([...updated]);
+            onComplete?.(updated[updated.length - 1].content);
+            setIsStreaming(false);
+          }, timeoutMs);
+        };
+
+        armTimeout();
+
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
@@ -100,6 +124,8 @@ export function useStreamingChat({
           for (const line of lines) {
             if (line.startsWith("data: ")) {
               try {
+                lastEventAt = Date.now();
+                armTimeout();
                 const data = JSON.parse(line.slice(6));
 
                 if (data.type === "text") {
@@ -123,6 +149,7 @@ export function useStreamingChat({
                   };
                   onMessage([...updated]);
                   onComplete?.(finalContent);
+                  if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current);
                 } else if (data.type === "error") {
                   const updated = [...newMessages];
                   updated[updated.length - 1] = {
@@ -132,6 +159,7 @@ export function useStreamingChat({
                     isStreaming: false,
                   };
                   onMessage([...updated]);
+                  if (streamTimeoutRef.current) clearTimeout(streamTimeoutRef.current);
                 }
               } catch {
                 // Skip malformed JSON
@@ -148,6 +176,9 @@ export function useStreamingChat({
         };
         onMessage([...updated]);
       } finally {
+        if (streamTimeoutRef.current) {
+          clearTimeout(streamTimeoutRef.current);
+        }
         setIsStreaming(false);
       }
     },
