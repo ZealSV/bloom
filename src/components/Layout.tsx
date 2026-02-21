@@ -6,6 +6,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { LayoutDashboard, LogOut, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,6 +69,8 @@ export default function Layout({
               <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
             </Link>
           </Button>
+
+          <ThemeToggle />
 
           {/* User menu */}
           {user && (

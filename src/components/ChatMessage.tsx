@@ -38,7 +38,7 @@ export default function ChatMessage({
       >
         <p
           className={`text-sm leading-relaxed whitespace-pre-wrap ${
-            isbloom ? "text-foreground" : "text-primary"
+            isbloom ? "text-foreground" : "text-[hsl(139_40%_56%)] dark:text-primary"
           }`}
         >
           {content}

@@ -46,65 +46,6 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
     }
   };
 
-  const handleFileUpload = async (file: File) => {
-    const readApiResponse = async (response: Response) => {
-      const contentType = response.headers.get("content-type") || "";
-      if (contentType.includes("application/json")) {
-        return response.json();
-      }
-
-      const text = await response.text();
-      if (text.includes("<!DOCTYPE html>")) {
-        return {
-          error: "Server returned an HTML error page",
-        };
-      }
-
-      return {
-        error: text.slice(0, 300) || "Server returned a non-JSON response.",
-      };
-    };
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("title", file.name);
-
-    const response = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
-
-    const result = await readApiResponse(response);
-
-    if (!response.ok) {
-      throw new Error(
-        (result as { error?: string })?.error || `Upload failed (${response.status})`,
-      );
-    }
-
-    const documentId = result?.documentId;
-    if (typeof documentId !== "string" || !documentId) {
-      throw new Error("Upload succeeded but no documentId was returned.");
-    }
-
-    const ingestResponse = await fetch("/api/ingest", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ documentId }),
-    });
-
-    const ingestResult = await readApiResponse(ingestResponse);
-
-    if (!ingestResponse.ok) {
-      throw new Error(
-        (ingestResult as { error?: string })?.error ||
-          `Ingest failed (${ingestResponse.status})`,
-      );
-    }
-  };
-
   const handlePickMode = (mode: TeachingMode) => {
     onStart(topic.trim(), mode, subject || undefined);
   };
@@ -245,7 +186,6 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
               <Upload
                 open={isUploadOpen}
                 onOpenChange={setIsUploadOpen}
-                onUpload={handleFileUpload}
               />
 
               <motion.div layout transition={{ duration: 0.25, ease: "easeInOut" }} className="mt-10">

@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { Send, Mic, MicOff, Volume2, VolumeX, FileImage } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ChatMessage from "./ChatMessage";
+import Upload from "@/components/Upload";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import type { Message, Concept } from "@/hooks/useSession";
 
@@ -35,6 +36,7 @@ export default function Chat({
   onStopSpeaking,
 }: ChatProps) {
   const [input, setInput] = useState("");
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -95,71 +97,88 @@ export default function Chat({
 
   /* Shared input bar */
   const inputBar = (
-    <form onSubmit={handleSubmit} className="w-full">
-      <div className="max-w-3xl mx-auto">
-        <div className="rounded-2xl border border-border bg-card p-1.5 flex items-center gap-1.5">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={`Explain ${topic.toLowerCase()} to bloom...`}
-            className="flex-1 px-3 py-2 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none"
-            rows={1}
-            disabled={isStreaming}
-            style={{ minHeight: "36px", maxHeight: "120px" }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = "auto";
-              target.style.height = Math.min(target.scrollHeight, 120) + "px";
-            }}
-          />
+    <>
+      <form onSubmit={handleSubmit} className="w-full">
+        <div className="max-w-3xl mx-auto">
+          <div className="rounded-2xl border border-border bg-muted/50 p-1.5 flex items-center gap-1.5">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={`Explain ${topic.toLowerCase()} to bloom...`}
+              className="flex-1 px-3 py-2 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none"
+              rows={1}
+              disabled={isStreaming}
+              style={{ minHeight: "36px", maxHeight: "120px" }}
+              onInput={(e) => {
+                const target = e.target as HTMLTextAreaElement;
+                target.style.height = "auto";
+                target.style.height = Math.min(target.scrollHeight, 120) + "px";
+              }}
+            />
 
-          {voiceMode && (
+            {voiceMode && (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={isListening ? stopListening : handleStartListening}
+                disabled={isStreaming || !isSupported}
+                className={`h-9 w-9 rounded-xl shrink-0 relative ${isListening
+                  ? "bg-red-500 hover:bg-red-600 text-white"
+                  : "text-muted-foreground hover:text-foreground"
+                  }`}
+                title={
+                  !isSupported
+                    ? "Speech recognition not supported in this browser"
+                    : isListening
+                      ? "Stop listening"
+                      : "Start speaking"
+                }
+              >
+                {isListening ? (
+                  <MicOff className="h-4 w-4" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+                {isListening && (
+                  <motion.div
+                    className="absolute inset-0 rounded-xl border-2 border-red-400"
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.8, 0, 0.8] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                  />
+                )}
+              </Button>
+            )}
+
             <Button
               type="button"
               size="icon"
-              variant="ghost"
-              onClick={isListening ? stopListening : handleStartListening}
-              disabled={isStreaming || !isSupported}
-              className={`h-9 w-9 rounded-xl shrink-0 relative ${isListening
-                ? "bg-red-500 hover:bg-red-600 text-white"
-                : "text-muted-foreground hover:text-foreground"
-                }`}
-              title={
-                !isSupported
-                  ? "Speech recognition not supported in this browser"
-                  : isListening
-                    ? "Stop listening"
-                    : "Start speaking"
-              }
+              className="h-9 w-9 rounded-xl shrink-0"
+              title="Add file"
+              onClick={() => setIsUploadOpen(true)}
             >
-              {isListening ? (
-                <MicOff className="h-4 w-4" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-              {isListening && (
-                <motion.div
-                  className="absolute inset-0 rounded-xl border-2 border-red-400"
-                  animate={{ scale: [1, 1.2, 1], opacity: [0.8, 0, 0.8] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                />
-              )}
+              <FileImage className="h-4 w-4" />
             </Button>
-          )}
 
-          <Button
-            type="submit"
-            size="icon"
-            disabled={!input.trim() || isStreaming}
-            className="h-9 w-9 rounded-xl shrink-0"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
+            <Button
+              type="submit"
+              size="icon"
+              disabled={!input.trim() || isStreaming}
+              className="h-9 w-9 rounded-xl shrink-0"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-      </div>
-    </form>
+      </form>
+
+      <Upload
+        open={isUploadOpen}
+        onOpenChange={setIsUploadOpen}
+      />
+    </>
   );
 
   /* ── Empty state: everything centered ── */
@@ -223,7 +242,7 @@ export default function Chat({
   return (
     <div className="flex flex-col h-full">
       {/* Topic header */}
-      <div className="px-4 py-3 border-b border-border bg-card/50 shrink-0">
+      <div className="px-4 py-3 border-b border-border bg-muted/40 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image src="/bloomlogo.png" alt="bloom" width={16} height={16} className="rounded-sm" />
@@ -336,7 +355,7 @@ export default function Chat({
       </div>
 
       {/* Input pinned to bottom */}
-      <div className="shrink-0 border-t border-border bg-background px-4 py-3">
+      <div className="shrink-0 border-t border-border bg-muted/30 px-4 py-3">
         {inputBar}
       </div>
     </div>
