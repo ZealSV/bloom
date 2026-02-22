@@ -24,6 +24,23 @@ const SUBJECT_COLORS = [
 // Only PDFs can be chunked + embedded by the existing ingest pipeline
 const INGESTIBLE_CONTENT_TYPES = new Set(["application/pdf"]);
 
+// File types worth downloading and storing from Canvas
+const UPLOADABLE_EXTENSIONS = new Set([
+  "pdf",
+  "doc",
+  "docx",
+  "ppt",
+  "pptx",
+  "xls",
+  "xlsx",
+  "txt",
+  "csv",
+  "rtf",
+  "odt",
+  "odp",
+  "ods",
+]);
+
 export interface SyncResult {
   success: boolean;
   coursesCreated: number;
@@ -139,6 +156,12 @@ export async function syncCanvasContent(
       // 4. For each file, download + upload + ingest PDFs
       for (const file of files) {
         try {
+          // Skip file types we don't need (videos, images, archives, etc.)
+          const ext = (file.filename.split(".").pop() || "").toLowerCase();
+          if (!UPLOADABLE_EXTENSIONS.has(ext)) {
+            continue;
+          }
+
           // Dedup: skip only if a doc with this canvas_file_id was actually uploaded
           const { data: existingDoc } = await admin
             .from("documents")
