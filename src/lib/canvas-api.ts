@@ -38,6 +38,14 @@ export interface CanvasFile {
   updated_at: string;
 }
 
+interface CanvasModuleItem {
+  id: number;
+  type: string;
+  title: string;
+  content_id?: number;
+  url?: string;
+}
+
 class CanvasAPIError extends Error {
   constructor(
     message: string,
@@ -163,14 +171,66 @@ export async function listCourses(
   });
 }
 
+/**
+ * Try direct /files endpoint first. If 403 (instructor disabled Files tab),
+ * fall back to collecting files from course modules.
+ */
 export async function listCourseFiles(
   creds: CanvasCredentials,
   courseId: number,
 ): Promise<CanvasFile[]> {
-  return canvasRequestPaginated<CanvasFile>(
-    creds,
-    `/courses/${courseId}/files`,
-  );
+  // Try direct file listing first
+  try {
+    return await canvasRequestPaginated<CanvasFile>(
+      creds,
+      `/courses/${courseId}/files`,
+    );
+  } catch (e: any) {
+    if (e?.status !== 403) throw e;
+    // Fall through to module-based approach
+  }
+
+  // Fallback: get files via modules → module items → file details
+  const files: CanvasFile[] = [];
+  const seenFileIds = new Set<number>();
+
+  try {
+    const modules = await canvasRequestPaginated<{ id: number }>(
+      creds,
+      `/courses/${courseId}/modules`,
+    );
+
+    for (const mod of modules) {
+      try {
+        const items = await canvasRequestPaginated<CanvasModuleItem>(
+          creds,
+          `/courses/${courseId}/modules/${mod.id}/items`,
+        );
+
+        for (const item of items) {
+          if (item.type !== "File" || !item.content_id) continue;
+          if (seenFileIds.has(item.content_id)) continue;
+          seenFileIds.add(item.content_id);
+
+          try {
+            const file = await canvasRequest<CanvasFile>(
+              creds,
+              `/courses/${courseId}/files/${item.content_id}`,
+            );
+            files.push(file);
+          } catch {
+            // Individual file fetch failed — skip it
+          }
+        }
+      } catch {
+        // Module items fetch failed — skip this module
+      }
+    }
+  } catch {
+    // Modules endpoint also failed — course truly restricts everything
+  }
+
+  return files;
 }
 
 export async function downloadFileContent(

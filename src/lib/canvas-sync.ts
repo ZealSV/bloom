@@ -152,20 +152,14 @@ export async function syncCanvasContent(
       }
 
       // 3. Fetch files for this course
+      // listCourseFiles tries /files first, falls back to modules on 403
       let files: CanvasFile[];
       try {
         files = await listCourseFiles(creds, course.id);
-      } catch (e: any) {
-        // 403 = course restricts file access — just a warning, not an error
-        if (e?.status === 403) {
-          warnings.push(
-            `[${course.course_code}] File access restricted by course — skipped`
-          );
-        } else {
-          warnings.push(
-            `[${course.course_code}] Could not fetch files — skipped`
-          );
-        }
+      } catch {
+        warnings.push(
+          `[${course.course_code}] Could not fetch files — skipped`
+        );
         continue;
       }
 
