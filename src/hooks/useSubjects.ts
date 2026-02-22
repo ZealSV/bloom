@@ -64,6 +64,7 @@ export function useSubjects() {
   return {
     subjects,
     loading,
+    setSubjects,
     fetchSubjects,
     createSubject,
     deleteSubject,

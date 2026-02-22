@@ -35,6 +35,35 @@ export async function GET(
   return NextResponse.json({ deck, cards: cards || [] });
 }
 
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id: deckId } = await params;
+  const { title } = await req.json();
+
+  const updates: Record<string, unknown> = {};
+  if (title !== undefined) updates.title = title;
+
+  const { data, error } = await supabase
+    .from("flashcard_decks")
+    .update(updates)
+    .eq("id", deckId)
+    .select()
+    .single();
+
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json(data);
+}
+
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

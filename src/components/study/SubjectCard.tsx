@@ -1,76 +1,163 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mic, BookOpen, ClipboardCheck, Trash2 } from "lucide-react";
+import { Mic, BookOpen, ClipboardCheck, Trash2, ChevronRight, Pencil, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Subject } from "@/types/study";
 
-const colorMap: Record<string, string> = {
-  red: "bg-red-500",
-  orange: "bg-orange-500",
-  yellow: "bg-yellow-500",
-  green: "bg-green-500",
-  blue: "bg-blue-500",
-  purple: "bg-purple-500",
-  pink: "bg-pink-500",
-  cyan: "bg-cyan-500",
+const colorMap: Record<string, { bg: string; accent: string; glow: string; icon: string; border: string }> = {
+  red: {
+    bg: "from-red-500/10 to-red-500/5",
+    accent: "bg-red-500",
+    glow: "bg-red-500/20",
+    icon: "text-red-500 bg-red-500/10",
+    border: "border-red-500/20 hover:border-red-500/40",
+  },
+  orange: {
+    bg: "from-orange-500/10 to-orange-500/5",
+    accent: "bg-orange-500",
+    glow: "bg-orange-500/20",
+    icon: "text-orange-500 bg-orange-500/10",
+    border: "border-orange-500/20 hover:border-orange-500/40",
+  },
+  yellow: {
+    bg: "from-yellow-500/10 to-yellow-500/5",
+    accent: "bg-yellow-500",
+    glow: "bg-yellow-500/20",
+    icon: "text-yellow-500 bg-yellow-500/10",
+    border: "border-yellow-500/20 hover:border-yellow-500/40",
+  },
+  green: {
+    bg: "from-emerald-500/10 to-emerald-500/5",
+    accent: "bg-emerald-500",
+    glow: "bg-emerald-500/20",
+    icon: "text-emerald-500 bg-emerald-500/10",
+    border: "border-emerald-500/20 hover:border-emerald-500/40",
+  },
+  blue: {
+    bg: "from-blue-500/10 to-blue-500/5",
+    accent: "bg-blue-500",
+    glow: "bg-blue-500/20",
+    icon: "text-blue-500 bg-blue-500/10",
+    border: "border-blue-500/20 hover:border-blue-500/40",
+  },
+  purple: {
+    bg: "from-purple-500/10 to-purple-500/5",
+    accent: "bg-purple-500",
+    glow: "bg-purple-500/20",
+    icon: "text-purple-500 bg-purple-500/10",
+    border: "border-purple-500/20 hover:border-purple-500/40",
+  },
+  pink: {
+    bg: "from-pink-500/10 to-pink-500/5",
+    accent: "bg-pink-500",
+    glow: "bg-pink-500/20",
+    icon: "text-pink-500 bg-pink-500/10",
+    border: "border-pink-500/20 hover:border-pink-500/40",
+  },
+  cyan: {
+    bg: "from-cyan-500/10 to-cyan-500/5",
+    accent: "bg-cyan-500",
+    glow: "bg-cyan-500/20",
+    icon: "text-cyan-500 bg-cyan-500/10",
+    border: "border-cyan-500/20 hover:border-cyan-500/40",
+  },
 };
+
+const defaultColor = colorMap.blue;
 
 interface SubjectCardProps {
   subject: Subject;
   onClick: () => void;
   onDelete: (e: React.MouseEvent) => void;
+  onEdit?: (e: React.MouseEvent) => void;
+  dragHandle?: React.ReactNode;
 }
 
 export default function SubjectCard({
   subject,
   onClick,
   onDelete,
+  onEdit,
+  dragHandle,
 }: SubjectCardProps) {
-  const colorClass = subject.color
-    ? colorMap[subject.color] || "bg-primary"
-    : "bg-primary";
+  const colors = subject.color ? colorMap[subject.color] || defaultColor : defaultColor;
+  const lectureCount = subject.lecture_count ?? 0;
+  const deckCount = subject.deck_count ?? 0;
+  const examCount = subject.exam_count ?? 0;
+  const totalItems = lectureCount + deckCount + examCount;
 
   return (
     <motion.div
-      className="group relative rounded-2xl border border-border bg-card hover:bg-muted/50 cursor-pointer transition-colors overflow-hidden"
+      className={`group relative rounded-2xl border bg-gradient-to-br ${colors.bg} ${colors.border} cursor-pointer transition-all duration-200 overflow-hidden`}
       onClick={onClick}
-      whileHover={{ scale: 1.01 }}
+      whileHover={{ y: -2 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
     >
-      {/* Color accent bar */}
-      <div className={`h-1.5 w-full ${colorClass}`} />
+      {/* Subtle glow orb in corner */}
+      <div className={`absolute -top-8 -right-8 w-24 h-24 rounded-full ${colors.glow} blur-2xl opacity-60 group-hover:opacity-100 transition-opacity`} />
 
-      <div className="p-5">
-        <div className="flex items-start justify-between mb-3">
-          <h3 className="font-outfit font-semibold text-foreground text-base">
-            {subject.name}
-          </h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(e);
-            }}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
+      <div className="relative p-5">
+        {/* Top row: drag handle + color dot + actions */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-2">
+            {dragHandle}
+            <div className={`w-3 h-3 rounded-full ${colors.accent} ring-2 ring-offset-1 ring-offset-transparent ring-white/10`} />
+          </div>
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity -mr-1 -mt-1">
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(e);
+                }}
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(e);
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
 
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
+        {/* Subject name */}
+        <h3 className="font-outfit font-semibold text-foreground text-lg mb-1 tracking-tight">
+          {subject.name}
+        </h3>
+        <p className="text-xs text-muted-foreground mb-5">
+          {totalItems === 0
+            ? "No materials yet"
+            : `${totalItems} ${totalItems === 1 ? "item" : "items"} total`}
+        </p>
+
+        {/* Stats row */}
+        <div className="flex items-center gap-3">
+          <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg ${colors.icon}`}>
             <Mic className="h-3 w-3" />
-            {subject.lecture_count ?? 0}
-          </span>
-          <span className="flex items-center gap-1">
+            <span className="font-medium">{lectureCount}</span>
+          </div>
+          <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg ${colors.icon}`}>
             <BookOpen className="h-3 w-3" />
-            {subject.deck_count ?? 0}
-          </span>
-          <span className="flex items-center gap-1">
+            <span className="font-medium">{deckCount}</span>
+          </div>
+          <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg ${colors.icon}`}>
             <ClipboardCheck className="h-3 w-3" />
-            {subject.exam_count ?? 0}
-          </span>
+            <span className="font-medium">{examCount}</span>
+          </div>
+          <div className="flex-1" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground group-hover:translate-x-0.5 transition-all" />
         </div>
       </div>
     </motion.div>

@@ -15,7 +15,7 @@ interface UseLectureRecorderOptions {
 }
 
 export function useLectureRecorder(opts: UseLectureRecorderOptions = {}) {
-  const { chunkIntervalMs = 60_000, subjectId } = opts;
+  const { chunkIntervalMs = 30_000, subjectId } = opts;
 
   const [status, setStatus] = useState<RecorderStatus>("idle");
   const [lectureId, setLectureId] = useState<string | null>(null);
@@ -34,6 +34,7 @@ export function useLectureRecorder(opts: UseLectureRecorderOptions = {}) {
   const transcriptRef = useRef("");
   const isSendingRef = useRef(false);
   const pendingBlobRef = useRef<Blob | null>(null);
+  const isCyclingRef = useRef(false);
 
   const sendChunkToWhisper = useCallback(async (blob: Blob) => {
     if (!lectureIdRef.current || blob.size < 1000) return;
@@ -75,6 +76,41 @@ export function useLectureRecorder(opts: UseLectureRecorderOptions = {}) {
       }
     }
   }, []);
+
+  // Cycle the recorder: stop -> collect chunks -> send -> restart
+  const cycleRecorder = useCallback(() => {
+    const recorder = mediaRecorderRef.current;
+    if (!recorder || recorder.state !== "recording" || isCyclingRef.current) return;
+
+    isCyclingRef.current = true;
+    const mimeType = recorder.mimeType || "audio/webm";
+
+    // Use a one-time onstop handler so we process data only after it's available
+    const prevOnStop = recorder.onstop;
+    recorder.onstop = () => {
+      // ondataavailable has already fired by the time onstop fires
+      if (chunksRef.current.length > 0) {
+        const blob = new Blob(chunksRef.current, { type: mimeType });
+        chunksRef.current = [];
+        sendChunkToWhisper(blob);
+      }
+
+      // Restart recording if stream is still active
+      if (streamRef.current?.active && mediaRecorderRef.current) {
+        try {
+          mediaRecorderRef.current.start();
+        } catch {
+          // Recorder may have been disposed
+        }
+      }
+
+      // Restore previous handler
+      recorder.onstop = prevOnStop;
+      isCyclingRef.current = false;
+    };
+
+    recorder.stop();
+  }, [sendChunkToWhisper]);
 
   const startRecording = useCallback(
     async (title?: string) => {
@@ -130,24 +166,9 @@ export function useLectureRecorder(opts: UseLectureRecorderOptions = {}) {
         recorder.start();
         setStatus("recording");
 
+        // Periodically cycle the recorder to send chunks for transcription
         chunkTimerRef.current = setInterval(() => {
-          if (
-            mediaRecorderRef.current &&
-            mediaRecorderRef.current.state === "recording"
-          ) {
-            mediaRecorderRef.current.stop();
-
-            setTimeout(() => {
-              if (chunksRef.current.length > 0) {
-                const blob = new Blob(chunksRef.current, { type: mimeType });
-                chunksRef.current = [];
-                sendChunkToWhisper(blob);
-              }
-              if (streamRef.current && streamRef.current.active) {
-                mediaRecorderRef.current?.start();
-              }
-            }, 100);
-          }
+          cycleRecorder();
         }, chunkIntervalMs);
 
         elapsedTimerRef.current = setInterval(() => {
@@ -160,7 +181,7 @@ export function useLectureRecorder(opts: UseLectureRecorderOptions = {}) {
         setStatus("idle");
       }
     },
-    [chunkIntervalMs, sendChunkToWhisper]
+    [chunkIntervalMs, cycleRecorder, subjectId]
   );
 
   const pauseRecording = useCallback(() => {
@@ -196,6 +217,13 @@ export function useLectureRecorder(opts: UseLectureRecorderOptions = {}) {
     if (elapsedTimerRef.current) {
       clearInterval(elapsedTimerRef.current);
       elapsedTimerRef.current = null;
+    }
+
+    // Wait for any in-progress cycling to finish
+    let cycleWait = 0;
+    while (isCyclingRef.current && cycleWait < 50) {
+      await new Promise((r) => setTimeout(r, 100));
+      cycleWait++;
     }
 
     const recorder = mediaRecorderRef.current;

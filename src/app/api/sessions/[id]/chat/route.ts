@@ -92,10 +92,10 @@ export async function POST(
     if (!queryEmbedding) return "";
 
     const { data: chunkRows } = await supabase
-      .from("chunks")
+      .from("chunks" as any)
       .select("content, embedding")
       .eq("user_id", userId)
-      .limit(200);
+      .limit(200) as { data: { content: string; embedding: any }[] | null };
 
     if (!Array.isArray(chunkRows) || chunkRows.length === 0) return "";
 

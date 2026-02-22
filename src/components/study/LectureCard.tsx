@@ -1,12 +1,15 @@
 "use client";
 
-import { Clock, FileText, Loader2, AlertCircle } from "lucide-react";
+import { Clock, FileText, Loader2, AlertCircle, Trash2, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { Lecture } from "@/types/study";
 
 interface LectureCardProps {
   lecture: Lecture;
   onClick: () => void;
+  onDelete?: (e: React.MouseEvent) => void;
+  onEdit?: (e: React.MouseEvent) => void;
 }
 
 function formatDuration(seconds: number): string {
@@ -39,13 +42,13 @@ const statusConfig: Record<
   failed: { label: "Failed", variant: "destructive", icon: <AlertCircle className="h-3 w-3" /> },
 };
 
-export default function LectureCard({ lecture, onClick }: LectureCardProps) {
+export default function LectureCard({ lecture, onClick, onDelete, onEdit }: LectureCardProps) {
   const status = statusConfig[lecture.status] || statusConfig.ready;
 
   return (
-    <button
+    <div
       onClick={onClick}
-      className="w-full text-left p-4 rounded-xl border border-border bg-card hover:bg-muted/30 hover:border-primary/20 transition-all group"
+      className="w-full text-left p-4 rounded-xl border border-border bg-card hover:bg-muted/30 hover:border-primary/20 transition-all group cursor-pointer"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
@@ -70,11 +73,39 @@ export default function LectureCard({ lecture, onClick }: LectureCardProps) {
             </span>
           </div>
         </div>
-        <Badge variant={status.variant} className="text-[10px] shrink-0 flex items-center gap-1">
-          {status.icon}
-          {status.label}
-        </Badge>
+        <div className="flex items-center gap-1 shrink-0">
+          <Badge variant={status.variant} className="text-[10px] flex items-center gap-1">
+            {status.icon}
+            {status.label}
+          </Badge>
+          {onEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(e);
+              }}
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(e);
+              }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
-    </button>
+    </div>
   );
 }

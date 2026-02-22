@@ -62,7 +62,7 @@ export default function ExamGenerator({ onGenerated, subjectId }: ExamGeneratorP
         answer) from your learning materials.
       </p>
 
-      <SourceSelector onSelect={(st, ids) => setSelected({ sourceType: st, sourceIds: ids })} selected={selected} />
+      <SourceSelector onSelect={(st, ids) => setSelected({ sourceType: st, sourceIds: ids })} selected={selected} subjectId={subjectId} />
 
       {error && (
         <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">

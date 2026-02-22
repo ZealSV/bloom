@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mic, Pause, Play, Square, Loader2 } from "lucide-react";
+import { Mic, Pause, Play, Square, Loader2, Upload, FileAudio, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import AudioWaveform from "./AudioWaveform";
@@ -20,8 +20,21 @@ function formatTime(seconds: number): string {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-export default function LectureRecorder({ onComplete, subjectId }: LectureRecorderProps) {
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+const ACCEPTED_TYPES = "audio/mpeg,audio/mp3,audio/mp4,audio/m4a,audio/wav,audio/webm,audio/ogg,audio/flac,video/mp4,video/webm,video/quicktime,video/mpeg";
+
+export default function LectureRecorder({ onComplete, onCancel, subjectId }: LectureRecorderProps) {
   const [title, setTitle] = useState("");
+  const [mode, setMode] = useState<"choose" | "record" | "upload">("choose");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -47,38 +60,275 @@ export default function LectureRecorder({ onComplete, subjectId }: LectureRecord
     }
   }, [status, lectureId, onComplete]);
 
-  if (status === "idle") {
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxSize = 25 * 1024 * 1024;
+    if (file.size > maxSize) {
+      setUploadError("File too large. Maximum size is 25MB.");
+      return;
+    }
+
+    setUploadFile(file);
+    setUploadError(null);
+    if (!title) {
+      const nameWithoutExt = file.name.replace(/\.[^.]+$/, "");
+      setTitle(nameWithoutExt);
+    }
+  }, [title]);
+
+  const handleUpload = useCallback(async () => {
+    if (!uploadFile) return;
+
+    setUploading(true);
+    setUploadError(null);
+    setUploadProgress("Uploading and transcribing...");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      formData.append("title", title || "Uploaded Lecture");
+      if (subjectId) formData.append("subject_id", subjectId);
+
+      const res = await fetch("/api/lectures/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Upload failed");
+      }
+
+      const data = await res.json();
+      if (data.lecture?.id && onComplete) {
+        onComplete(data.lecture.id);
+      }
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      setUploadProgress("");
+    }
+  }, [uploadFile, title, subjectId, onComplete]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      const maxSize = 25 * 1024 * 1024;
+      if (file.size > maxSize) {
+        setUploadError("File too large. Maximum size is 25MB.");
+        return;
+      }
+      setUploadFile(file);
+      setUploadError(null);
+      if (!title) {
+        const nameWithoutExt = file.name.replace(/\.[^.]+$/, "");
+        setTitle(nameWithoutExt);
+      }
+    }
+  }, [title]);
+
+  // Idle: choose between record or upload
+  if (status === "idle" && mode === "choose") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-3"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Record option */}
+          <motion.button
+            className="group relative rounded-2xl border border-border bg-card hover:bg-muted/50 p-6 text-left transition-colors"
+            onClick={() => setMode("record")}
+            whileHover={{ y: -2 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          >
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 mb-3">
+              <Mic className="h-5 w-5 text-primary" />
+            </div>
+            <h3 className="font-outfit font-semibold text-foreground mb-1">
+              Record Live
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Capture audio with live transcription
+            </p>
+          </motion.button>
+
+          {/* Upload option */}
+          <motion.button
+            className="group relative rounded-2xl border border-border bg-card hover:bg-muted/50 p-6 text-left transition-colors"
+            onClick={() => setMode("upload")}
+            whileHover={{ y: -2 }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          >
+            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 mb-3">
+              <Upload className="h-5 w-5 text-blue-500" />
+            </div>
+            <h3 className="font-outfit font-semibold text-foreground mb-1">
+              Upload File
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Upload audio or video for transcription
+            </p>
+          </motion.button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Upload flow
+  if (status === "idle" && mode === "upload") {
     return (
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         className="rounded-2xl border border-border bg-card p-6"
       >
-        <div className="text-center">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 mb-4">
-            <Mic className="h-6 w-6 text-primary" />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Upload className="h-4 w-4 text-blue-500" />
+            <h3 className="font-outfit font-semibold text-foreground">
+              Upload Lecture
+            </h3>
           </div>
-          <h3 className="font-outfit text-lg font-semibold text-foreground mb-1">
-            Record a Lecture
-          </h3>
-          <p className="text-sm text-muted-foreground mb-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => {
+              setMode("choose");
+              setUploadFile(null);
+              setUploadError(null);
+            }}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+
+        <div className="space-y-4">
+          <Input
+            placeholder="Lecture title (optional)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+
+          {/* Drop zone */}
+          {!uploadFile ? (
+            <div
+              className="relative border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/40 transition-colors cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+            >
+              <FileAudio className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-sm font-medium text-foreground mb-1">
+                Drop your file here or click to browse
+              </p>
+              <p className="text-xs text-muted-foreground">
+                MP3, MP4, M4A, WAV, WebM, OGG, FLAC, MOV — max 25MB
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept={ACCEPTED_TYPES}
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30">
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500/10">
+                <FileAudio className="h-5 w-5 text-blue-500" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {uploadFile.name}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {formatFileSize(uploadFile.size)}
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                onClick={() => setUploadFile(null)}
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          )}
+
+          {uploadError && (
+            <p className="text-xs text-destructive">{uploadError}</p>
+          )}
+
+          <Button
+            onClick={handleUpload}
+            disabled={!uploadFile || uploading}
+            className="w-full"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {uploadProgress}
+              </>
+            ) : (
+              <>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload & Transcribe
+              </>
+            )}
+          </Button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Record flow - title input
+  if (status === "idle" && mode === "record") {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-2xl border border-border bg-card p-6"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Mic className="h-4 w-4 text-primary" />
+            <h3 className="font-outfit font-semibold text-foreground">
+              Record Lecture
+            </h3>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 w-7 p-0"
+            onClick={() => setMode("choose")}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
             Capture audio and get a live transcript with AI-powered notes
           </p>
-          <div className="max-w-sm mx-auto space-y-3">
-            <Input
-              placeholder="Lecture title (optional)"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="text-center"
-            />
-            <Button
-              onClick={() => startRecording(title)}
-              className="w-full bg-primary hover:bg-primary/90"
-            >
-              <Mic className="mr-2 h-4 w-4" />
-              Start Recording
-            </Button>
-          </div>
+          <Input
+            placeholder="Lecture title (optional)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <Button
+            onClick={() => startRecording(title)}
+            className="w-full bg-primary hover:bg-primary/90"
+          >
+            <Mic className="mr-2 h-4 w-4" />
+            Start Recording
+          </Button>
         </div>
       </motion.div>
     );

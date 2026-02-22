@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Check, FileText, Mic, MessageSquare } from "lucide-react";
+import { Check, FileText, Mic, MessageSquare, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase-browser";
 import type { SourceType } from "@/types/study";
@@ -92,7 +92,7 @@ export default function SourceSelector({
 
     loadSources();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [subjectId]);
 
   const isAll = selected.sourceType === "all";
 
@@ -135,8 +135,18 @@ export default function SourceSelector({
           onClick={() => onSelect("all", [])}
           className="text-xs"
         >
+          {isAll ? (
+            <CheckSquare className="mr-1.5 h-3 w-3" />
+          ) : (
+            <Square className="mr-1.5 h-3 w-3" />
+          )}
           All Sources
         </Button>
+        {!isAll && selected.sourceIds.length > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {selected.sourceIds.length} selected
+          </span>
+        )}
       </div>
 
       {!loading && sources.length > 0 && (
@@ -154,11 +164,15 @@ export default function SourceSelector({
                     : "hover:bg-muted text-foreground"
                 }`}
               >
-                <span className="text-muted-foreground">
+                {isSelected ? (
+                  <CheckSquare className="h-3 w-3 text-primary shrink-0" />
+                ) : (
+                  <Square className="h-3 w-3 text-muted-foreground/50 shrink-0" />
+                )}
+                <span className="text-muted-foreground shrink-0">
                   {typeIcon(source.type)}
                 </span>
                 <span className="truncate flex-1">{source.title}</span>
-                {isSelected && <Check className="h-3 w-3 text-primary" />}
               </button>
             );
           })}
@@ -167,8 +181,7 @@ export default function SourceSelector({
 
       {!loading && sources.length === 0 && (
         <p className="text-xs text-muted-foreground">
-          No sources available yet. Add lectures, documents, or chat sessions
-          first.
+          No sources available yet. Add lectures or chat sessions first.
         </p>
       )}
     </div>

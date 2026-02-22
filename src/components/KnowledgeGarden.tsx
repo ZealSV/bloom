@@ -168,16 +168,21 @@ function Flower({
           {/* Petals - ellipses rotated around center */}
           {[0, 60, 120, 180, 240, 300].map((angle, idx) => (
             <g key={angle} transform={`rotate(${angle}, ${x}, ${groundY - 68})`}>
-              <motion.ellipse
-                cx={x}
-                cy={groundY - 78}
-                rx={5}
-                ry={12}
-                fill={colors.petal}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.8 }}
-                transition={{ delay: 0.3 + idx * 0.05, duration: 0.3 }}
-              />
+              <motion.g
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ delay: 0.3 + idx * 0.05, type: "spring", stiffness: 100 }}
+                style={{ transformOrigin: `${x}px ${groundY - 68}px` }}
+              >
+                <ellipse
+                  cx={x}
+                  cy={groundY - 78}
+                  rx={5}
+                  ry={12}
+                  fill={colors.petal}
+                  opacity={0.8}
+                />
+              </motion.g>
             </g>
           ))}
           {/* Center */}
@@ -247,16 +252,21 @@ function Flower({
             {/* Outer petals - large ellipses */}
             {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, idx) => (
               <g key={`outer-${angle}`} transform={`rotate(${angle}, ${x}, ${groundY - 84})`}>
-                <motion.ellipse
-                  cx={x}
-                  cy={groundY - 98}
-                  rx={7}
-                  ry={16}
-                  fill={colors.petal}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.85 }}
-                  transition={{ delay: idx * 0.05, duration: 0.3 }}
-                />
+                <motion.g
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: idx * 0.05, type: "spring", stiffness: 100 }}
+                  style={{ transformOrigin: `${x}px ${groundY - 84}px` }}
+                >
+                  <ellipse
+                    cx={x}
+                    cy={groundY - 98}
+                    rx={7}
+                    ry={16}
+                    fill={colors.petal}
+                    opacity={0.85}
+                  />
+                </motion.g>
               </g>
             ))}
 
@@ -264,16 +274,21 @@ function Flower({
             {[22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5].map(
               (angle, idx) => (
                 <g key={`inner-${angle}`} transform={`rotate(${angle}, ${x}, ${groundY - 84})`}>
-                  <motion.ellipse
-                    cx={x}
-                    cy={groundY - 92}
-                    rx={4}
-                    ry={10}
-                    fill={colors.center}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 0.45 }}
-                    transition={{ delay: 0.2 + idx * 0.05, duration: 0.3 }}
-                  />
+                  <motion.g
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.2 + idx * 0.05, type: "spring", stiffness: 100 }}
+                    style={{ transformOrigin: `${x}px ${groundY - 84}px` }}
+                  >
+                    <ellipse
+                      cx={x}
+                      cy={groundY - 92}
+                      rx={4}
+                      ry={10}
+                      fill={colors.center}
+                      opacity={0.45}
+                    />
+                  </motion.g>
                 </g>
               )
             )}
