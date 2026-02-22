@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { Sprout } from "lucide-react";
 import type { Concept } from "@/hooks/useSession";
 import { getFlowerStage, getFlowerColors } from "@/utils/gardenHelpers";
+import { useTheme } from "next-themes";
 
 interface KnowledgeGardenProps {
   concepts: Concept[];
@@ -361,11 +362,19 @@ export default function KnowledgeGarden({
 }: KnowledgeGardenProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   const width = 400;
   const height = 220;
   const groundY = 180;
   const colors = getFlowerColors(subjectArea);
+  const skyStops = isDark
+    ? ["#050805", "#0a120a", "#111c11"]
+    : ["#dcf1ff", "#a2e0ff", "#90d4ff"];
+  const groundStops = isDark
+    ? ["#1a2e1a", "#0a0f0a"]
+    : ["#bfe3b6", "#9fd28f"];
 
   // Position flowers evenly
   const spacing = Math.min(70, (width - 60) / Math.max(concepts.length, 1));
@@ -401,16 +410,17 @@ export default function KnowledgeGarden({
             className="w-full"
             style={{ minHeight: 180 }}
           >
+            
             {/* Sky background */}
             <defs>
               <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#050805" />
-                <stop offset="60%" stopColor="#0a120a" />
-                <stop offset="100%" stopColor="#111c11" />
+                <stop offset="0%" stopColor={skyStops[0]} />
+                <stop offset="60%" stopColor={skyStops[1]} />
+                <stop offset="100%" stopColor={skyStops[2]} />
               </linearGradient>
               <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#1a2e1a" />
-                <stop offset="100%" stopColor="#0a0f0a" />
+                <stop offset="0%" stopColor={groundStops[0]} />
+                <stop offset="100%" stopColor={groundStops[1]} />
               </linearGradient>
               <radialGradient id="bloomGlow" cx="50%" cy="50%" r="50%">
                 <stop offset="0%" stopColor="rgba(74, 222, 128, 0.15)" />
