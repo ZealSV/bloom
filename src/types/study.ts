@@ -102,7 +102,7 @@ export interface ExamAttempt {
 
 // ---- Shared types ----
 
-export type SourceType = "lecture" | "document" | "session" | "all";
+export type SourceType = "lecture" | "document" | "session" | "all" | "none";
 
 export interface StudySource {
   id: string;

@@ -72,7 +72,7 @@ export default function ExamGenerator({ onGenerated, subjectId }: ExamGeneratorP
 
       <Button
         onClick={handleGenerate}
-        disabled={generating}
+        disabled={generating || selected.sourceType === "none"}
         className="w-full"
       >
         {generating ? (

@@ -96,9 +96,10 @@ export default function SourceSelector({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjectId]);
 
-  const isAllFilter = viewFilter === "all";
   const isFilesFilter = viewFilter === "document";
   const isLecturesFilter = viewFilter === "lecture";
+  const isAllSelected = selected.sourceType === "all";
+  const isNoneSelected = selected.sourceType === "none";
 
   const toggleSource = (source: Source) => {
     if (selected.sourceType === "all" || selected.sourceType !== source.type) {
@@ -111,10 +112,15 @@ export default function SourceSelector({
       : [...selected.sourceIds, source.id];
 
     if (ids.length === 0) {
-      onSelect("all", []);
+      onSelect("none", []);
     } else {
       onSelect(source.type, ids);
     }
+  };
+
+  const selectAllSources = () => {
+    setViewFilter("all");
+    onSelect(isAllSelected ? "none" : "all", []);
   };
 
   const typeIcon = (type: SourceType) => {
@@ -149,12 +155,12 @@ export default function SourceSelector({
     <div className="space-y-3">
       <div className="flex items-center gap-2 flex-wrap">
         <Button
-          variant={isAllFilter ? "default" : "outline"}
+          variant={isAllSelected ? "default" : "outline"}
           size="sm"
-          onClick={() => setViewFilter("all")}
+          onClick={selectAllSources}
           className="text-xs"
         >
-          {isAllFilter ? (
+          {isAllSelected ? (
             <CheckSquare className="mr-1.5 h-3 w-3" />
           ) : (
             <Square className="mr-1.5 h-3 w-3" />
@@ -187,7 +193,17 @@ export default function SourceSelector({
           )}
           Lectures
         </Button>
-        {selected.sourceIds.length > 0 && (
+        {isAllSelected && (
+          <span className="text-xs text-muted-foreground">
+            All sources selected
+          </span>
+        )}
+        {isNoneSelected && (
+          <span className="text-xs text-muted-foreground">
+            No sources selected
+          </span>
+        )}
+        {!isAllSelected && selected.sourceIds.length > 0 && (
           <span className="text-xs text-muted-foreground">
             {selected.sourceIds.length} selected
           </span>
@@ -198,8 +214,9 @@ export default function SourceSelector({
         <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-border p-2">
           {visibleSources.map((source) => {
             const isSelected =
-              selected.sourceType !== "all" &&
-              selected.sourceIds.includes(source.id);
+              selected.sourceType === "all" ||
+              (selected.sourceType === source.type &&
+                selected.sourceIds.includes(source.id));
             return (
               <button
                 key={source.id}
