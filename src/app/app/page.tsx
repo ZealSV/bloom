@@ -246,6 +246,7 @@ export default function AppPage() {
         onTtsEnabledChange={setTtsEnabled}
         isSpeaking={isSpeaking}
         onStopSpeaking={stopSpeaking}
+        onEnterLiveMode={() => setIsLiveMode(true)}
       />
     );
 

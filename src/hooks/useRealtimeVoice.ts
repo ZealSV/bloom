@@ -19,6 +19,7 @@ export type RealtimeStatus =
 interface UseRealtimeVoiceOptions {
   sessionId: string;
   topic: string;
+  onBye?: () => void;
 }
 
 interface UseRealtimeVoiceReturn {
@@ -33,6 +34,7 @@ interface UseRealtimeVoiceReturn {
 export function useRealtimeVoice({
   sessionId,
   topic,
+  onBye,
 }: UseRealtimeVoiceOptions): UseRealtimeVoiceReturn {
   const [status, setStatus] = useState<RealtimeStatus>("idle");
   const [transcript, setTranscript] = useState<TranscriptMessage[]>([]);
@@ -46,216 +48,210 @@ export function useRealtimeVoice({
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const transcriptRef = useRef<TranscriptMessage[]>([]);
   const currentBloomText = useRef("");
-  const responsePendingRef = useRef(false);
-  const responseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastStudentRef = useRef<{ text: string; at: number } | null>(null);
+  const disconnectedRef = useRef(false);
+  const onByeRef = useRef(onBye);
 
-  const waitForIceGathering = useCallback((pc: RTCPeerConnection, timeoutMs = 3000) => {
-    if (pc.iceGatheringState === "complete") return Promise.resolve();
-    return new Promise<void>((resolve) => {
-      const timeout = setTimeout(() => {
-        pc.removeEventListener("icegatheringstatechange", onStateChange);
-        resolve();
-      }, timeoutMs);
-
-      const onStateChange = () => {
-        if (pc.iceGatheringState === "complete") {
-          clearTimeout(timeout);
-          pc.removeEventListener("icegatheringstatechange", onStateChange);
-          resolve();
-        }
-      };
-
-      pc.addEventListener("icegatheringstatechange", onStateChange);
-    });
-  }, []);
+  // Keep onBye ref current without re-creating callbacks
+  useEffect(() => {
+    onByeRef.current = onBye;
+  }, [onBye]);
 
   const disconnect = useCallback(() => {
-    // Stop timer
+    disconnectedRef.current = true;
+
+    // 1. Stop timer
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-    if (responseTimerRef.current) {
-      clearTimeout(responseTimerRef.current);
-      responseTimerRef.current = null;
+
+    // 2. Cut off any playing audio (needs open data channel)
+    if (dcRef.current && dcRef.current.readyState === "open") {
+      try {
+        dcRef.current.send(
+          JSON.stringify({ type: "output_audio_buffer.clear" })
+        );
+      } catch {
+        // Channel may already be closing
+      }
     }
 
-    // Stop mic
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-
-    // Close data channel
+    // 3. Close data channel — prevents further events from arriving
     if (dcRef.current) {
+      dcRef.current.onmessage = null;
+      dcRef.current.onerror = null;
+      dcRef.current.onopen = null;
       dcRef.current.close();
       dcRef.current = null;
     }
 
-    // Close peer connection
+    // 4. Stop ALL mic tracks — this releases the browser mic indicator
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => {
+        t.enabled = false;
+        t.stop();
+      });
+      streamRef.current = null;
+    }
+
+    // 5. Stop all tracks on peer connection + close it
     if (pcRef.current) {
+      // Stop our mic tracks (senders)
+      pcRef.current.getSenders().forEach((s) => {
+        if (s.track) {
+          s.track.enabled = false;
+          s.track.stop();
+        }
+      });
+      // Stop bloom's audio tracks (receivers)
+      pcRef.current.getReceivers().forEach((r) => {
+        if (r.track) {
+          r.track.enabled = false;
+          r.track.stop();
+        }
+      });
+      pcRef.current.ontrack = null;
+      pcRef.current.oniceconnectionstatechange = null;
+      pcRef.current.onconnectionstatechange = null;
       pcRef.current.close();
       pcRef.current = null;
     }
 
-    // Cleanup audio
+    // 6. Kill audio element completely
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.srcObject = null;
+      audioRef.current.remove(); // Remove from DOM
       audioRef.current = null;
     }
 
     setStatus("idle");
-    responsePendingRef.current = false;
   }, []);
 
   const connect = useCallback(async () => {
+    // Prevent double-connect
+    if (!disconnectedRef.current && pcRef.current) return;
+
     setError(null);
     setStatus("connecting");
     setElapsedSeconds(0);
     transcriptRef.current = [];
     setTranscript([]);
     currentBloomText.current = "";
-    responsePendingRef.current = false;
     lastStudentRef.current = null;
+    disconnectedRef.current = false;
 
     try {
-      const fail = (stage: string, err: unknown) => {
-        const message =
-          err instanceof Error ? err.message : String(err || "Unknown error");
-        setError(`${stage}: ${message}`);
-      };
+      // ── 1. Get ephemeral token + reference context ──
+      const tokenRes = await fetch("/api/realtime/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, voice: "shimmer" }),
+      });
 
-      // 1. Get ephemeral token
-      let clientSecret = "";
-      let referenceContext = "";
-      try {
-        const tokenRes = await fetch("/api/realtime/session", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sessionId, voice: "shimmer" }),
-        });
-
-        if (!tokenRes.ok) {
-          const errData = await tokenRes.json().catch(() => ({}));
-          throw new Error(
-            errData.details || errData.error || "Failed to create realtime session"
-          );
-        }
-
-        const data = await tokenRes.json();
-        clientSecret = data.clientSecret;
-        referenceContext =
-          typeof data.referenceContext === "string" ? data.referenceContext : "";
-      } catch (err) {
-        fail("Token request failed", err);
-        throw err;
+      if (!tokenRes.ok) {
+        const errData = await tokenRes.json().catch(() => ({}));
+        throw new Error(
+          errData.details || errData.error || "Failed to create realtime session"
+        );
       }
+
+      const tokenData = await tokenRes.json();
+      const clientSecret = tokenData.clientSecret;
+      const referenceContext =
+        typeof tokenData.referenceContext === "string"
+          ? tokenData.referenceContext
+          : "";
 
       if (!clientSecret) {
-        const err = new Error("No client secret returned");
-        fail("Token response invalid", err);
-        throw err;
+        throw new Error("No client secret returned");
       }
 
-      // 2. Get microphone
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (err) {
-        fail("Microphone access denied", err);
-        throw err;
-      }
+      if (disconnectedRef.current) return;
+
+      // ── 2. Get microphone ──
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
 
-      // 3. Create peer connection
+      if (disconnectedRef.current) {
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        return;
+      }
+
+      // ── 3. Create peer connection ──
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
 
-      // 4. Setup remote audio playback
+      // ── 4. Setup remote audio playback ──
+      // Append to DOM body (hidden) for reliable playback in all browsers
       const audio = document.createElement("audio");
       audio.autoplay = true;
+      audio.style.display = "none";
+      document.body.appendChild(audio);
       audioRef.current = audio;
 
       pc.ontrack = (event) => {
         audio.srcObject = event.streams[0];
+        audio.play().catch(() => {});
       };
 
-      // 5. Add mic track
-      stream.getTracks().forEach((track) => {
-        pc.addTrack(track, stream);
-      });
+      // ── 5. Add mic track ──
+      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
-      // 6. Create data channel
+      // ── 6. Create data channel ──
       const dc = pc.createDataChannel("oai-events");
       dcRef.current = dc;
 
+      const instructions =
+        buildVoiceInstructions(topic, referenceContext) +
+        "\n\nIMPORTANT: Always respond in English.";
+
       dc.onopen = () => {
-        // Configure session
-        const sessionUpdate = {
-          type: "session.update",
-          session: {
-            instructions: buildVoiceInstructions(topic, referenceContext),
-            input_audio_transcription: {
-              model: "whisper-1",
+        // Only update instructions — turn_detection and transcription
+        // are configured at session creation via client_secrets.
+        dc.send(
+          JSON.stringify({
+            type: "session.update",
+            session: {
+              type: "realtime",
+              instructions,
             },
-            turn_detection: {
-              type: "server_vad",
-              threshold: 0.4,
-              prefix_padding_ms: 250,
-              silence_duration_ms: 600,
-            },
-          },
-        };
-        dc.send(JSON.stringify(sessionUpdate));
+          })
+        );
+
         setStatus("listening");
 
-        // Start timer
         timerRef.current = setInterval(() => {
           setElapsedSeconds((s) => s + 1);
         }, 1000);
       };
 
       dc.onmessage = (event: MessageEvent) => {
-        try {
-          const data = JSON.parse(event.data);
+        // Guard: ignore events after disconnect
+        if (disconnectedRef.current) return;
 
-          switch (data.type) {
+        try {
+          const msg = JSON.parse(event.data);
+
+          switch (msg.type) {
+            // ── VAD events ──
             case "input_audio_buffer.speech_started":
               setStatus("listening");
-              if (responseTimerRef.current) {
-                clearTimeout(responseTimerRef.current);
-                responseTimerRef.current = null;
-              }
               break;
 
             case "input_audio_buffer.speech_stopped":
               setStatus("thinking");
-              if (responseTimerRef.current) clearTimeout(responseTimerRef.current);
-              responseTimerRef.current = setTimeout(() => {
-                if (
-                  dcRef.current &&
-                  dcRef.current.readyState === "open" &&
-                  !responsePendingRef.current
-                ) {
-                  responsePendingRef.current = true;
-                  dcRef.current.send(
-                    JSON.stringify({
-                      type: "response.create",
-                      response: { modalities: ["audio", "text"] },
-                    })
-                  );
-                }
-              }, 700);
               break;
 
-            case "response.audio_transcript.delta":
-              currentBloomText.current += data.delta || "";
+            // ── Bloom response transcript ──
+            case "response.output_audio_transcript.delta":
+              currentBloomText.current += msg.delta || "";
               break;
 
-            case "response.audio_transcript.done": {
-              const text = data.transcript || currentBloomText.current;
+            case "response.output_audio_transcript.done": {
+              const text = msg.transcript || currentBloomText.current;
               if (text.trim()) {
                 transcriptRef.current.push({
                   role: "bloom",
@@ -268,58 +264,64 @@ export function useRealtimeVoice({
               break;
             }
 
+            // ── Student input transcription ──
             case "conversation.item.input_audio_transcription.completed": {
-              const userText = data.transcript;
-              if (userText?.trim()) {
-                const normalized = userText.trim().toLowerCase().replace(/\s+/g, " ");
-                const now = Date.now();
-                const last = lastStudentRef.current;
-                const isDuplicate =
-                  last && last.text === normalized && now - last.at < 5000;
+              const userText = msg.transcript;
+              if (!userText?.trim()) break;
 
-                if (!isDuplicate) {
-                  transcriptRef.current.push({
-                    role: "student",
-                    content: userText.trim(),
-                    timestamp: now,
-                  });
-                  setTranscript([...transcriptRef.current]);
-                  lastStudentRef.current = { text: normalized, at: now };
-                }
+              const normalized = userText
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, " ");
+              const now = Date.now();
+              const last = lastStudentRef.current;
 
-                if (
-                  dcRef.current &&
-                  dcRef.current.readyState === "open" &&
-                  !responsePendingRef.current
-                ) {
-                  if (responseTimerRef.current) {
-                    clearTimeout(responseTimerRef.current);
-                    responseTimerRef.current = null;
-                  }
-                  responsePendingRef.current = true;
-                  dcRef.current.send(
-                    JSON.stringify({
-                      type: "response.create",
-                      response: { modalities: ["audio", "text"] },
-                    })
-                  );
-                  setStatus("thinking");
+              // Fuzzy dedup: skip if >80% similar to last message within 8s
+              let isDuplicate = false;
+              if (last && now - last.at < 8000) {
+                const shorter = Math.min(last.text.length, normalized.length);
+                const longer = Math.max(last.text.length, normalized.length);
+                if (shorter > 0 && longer > 0) {
+                  const ratio = shorter / longer;
+                  const prefixLen = Math.min(30, shorter);
+                  const prefixMatch =
+                    last.text.slice(0, prefixLen) ===
+                    normalized.slice(0, prefixLen);
+                  isDuplicate = ratio > 0.8 && prefixMatch;
                 }
+              }
+
+              if (!isDuplicate) {
+                transcriptRef.current.push({
+                  role: "student",
+                  content: userText.trim(),
+                  timestamp: now,
+                });
+                setTranscript([...transcriptRef.current]);
+                lastStudentRef.current = { text: normalized, at: now };
+              }
+
+              // Check for "bye" / "goodbye" to end session
+              if (/\b(bye|goodbye)\b/i.test(normalized) && onByeRef.current) {
+                setTimeout(() => onByeRef.current?.(), 500);
               }
               break;
             }
 
+            // ── Response lifecycle ──
             case "response.created":
               setStatus("speaking");
               break;
 
             case "response.done":
               setStatus("listening");
-              responsePendingRef.current = false;
               break;
 
+            // ── Errors ──
             case "error":
-              setError(data.error?.message || "Realtime API error");
+              if (msg.error?.message?.includes("cancellation")) break;
+              if (msg.error?.message?.includes("no active response")) break;
+              setError(msg.error?.message || "Realtime API error");
               break;
           }
         } catch {
@@ -346,55 +348,64 @@ export function useRealtimeVoice({
         }
       };
 
-      // 7. SDP exchange
-      try {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await waitForIceGathering(pc);
+      // ── 7. SDP exchange — raw SDP with ephemeral token ──
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
 
-        const sdpRes = await fetch(
-          "https://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17",
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${clientSecret}`,
-              "Content-Type": "application/sdp",
-            },
-            body: offer.sdp,
-          }
-        );
-
-        if (!sdpRes.ok) {
-          const errText = await sdpRes.text().catch(() => "");
-          throw new Error(`SDP exchange failed (${sdpRes.status}). ${errText}`);
-        }
-
-        const answerSdp = await sdpRes.text();
-        await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
-      } catch (err) {
-        fail("Realtime SDP exchange failed", err);
-        throw err;
+      // Wait for ICE candidates (with timeout)
+      if (pc.iceGatheringState !== "complete") {
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(resolve, 3000);
+          const onGather = () => {
+            if (pc.iceGatheringState === "complete") {
+              clearTimeout(timeout);
+              pc.removeEventListener("icegatheringstatechange", onGather);
+              resolve();
+            }
+          };
+          pc.addEventListener("icegatheringstatechange", onGather);
+        });
       }
+
+      if (disconnectedRef.current) return;
+
+      const sdpRes = await fetch(
+        "https://api.openai.com/v1/realtime/calls",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${clientSecret}`,
+            "Content-Type": "application/sdp",
+          },
+          body: pc.localDescription?.sdp,
+        }
+      );
+
+      if (!sdpRes.ok) {
+        const errText = await sdpRes.text().catch(() => "");
+        throw new Error(
+          `SDP exchange failed (${sdpRes.status}). ${errText}`
+        );
+      }
+
+      const answerSdp = await sdpRes.text();
+      await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to connect";
-      setError(message);
-      disconnect();
+      if (!disconnectedRef.current) {
+        const message =
+          err instanceof Error ? err.message : "Failed to connect";
+        setError(message);
+        disconnect();
+      }
     }
   }, [sessionId, topic, disconnect]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (pcRef.current) {
-        streamRef.current?.getTracks().forEach((t) => t.stop());
-        dcRef.current?.close();
-        pcRef.current.close();
-        audioRef.current?.pause();
-        if (timerRef.current) clearInterval(timerRef.current);
-      }
+      disconnect();
     };
-  }, []);
+  }, [disconnect]);
 
   return { status, connect, disconnect, transcript, error, elapsedSeconds };
 }
