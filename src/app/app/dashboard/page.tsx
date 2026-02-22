@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Sprout, BarChart3, GitFork } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import KnowledgeGarden from "@/components/KnowledgeGarden";
 import MasteryDashboard from "@/components/MasteryDashboard";
@@ -20,10 +21,19 @@ interface SessionRow {
   updated_at: string;
 }
 
+function normalizeConceptName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function deduplicateConcepts(concepts: Concept[]): Concept[] {
   const map = new Map<string, Concept>();
   for (const c of concepts) {
-    const key = c.name.toLowerCase();
+    const key = normalizeConceptName(c.name);
     const existing = map.get(key);
     if (!existing || c.mastery_score > existing.mastery_score) {
       map.set(key, c);
@@ -56,12 +66,15 @@ function deduplicateRelationships(
 
 export default function DashboardPage() {
   const [concepts, setConcepts] = useState<Concept[]>([]);
+  const [gardenGroups, setGardenGroups] = useState<
+    { topic: string; mastery_score: number; concepts: Concept[] }[]
+  >([]);
   const [gaps, setGaps] = useState<Gap[]>([]);
   const [relationships, setRelationships] = useState<ConceptRelationship[]>([]);
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     async function load() {
@@ -75,6 +88,7 @@ export default function DashboardPage() {
       const { data: sessionsData } = await supabase
         .from("sessions")
         .select("*")
+        .eq("user_id", userData.user.id)
         .order("updated_at", { ascending: false });
 
       const rows = (sessionsData as SessionRow[] | null) || [];
@@ -92,8 +106,35 @@ export default function DashboardPage() {
             .in("session_id", sessionIds),
         ]);
 
-        if (Array.isArray(conceptsRes.data))
-          setConcepts(deduplicateConcepts(conceptsRes.data));
+        if (Array.isArray(conceptsRes.data)) {
+          const conceptData = conceptsRes.data as unknown as Concept[];
+          const deduped = deduplicateConcepts(conceptData);
+          setConcepts(deduped);
+
+          const sessionById = new Map(rows.map((s) => [s.id, s]));
+          const groups = new Map<string, Concept[]>();
+          for (const concept of conceptData) {
+            const session = sessionById.get(concept.session_id);
+            const topic = session?.topic?.trim() || "Untitled";
+            if (!groups.has(topic)) groups.set(topic, []);
+            groups.get(topic)?.push(concept);
+          }
+
+          const groupList = Array.from(groups.entries()).map(([topic, list]) => {
+            const topicKey = normalizeConceptName(topic);
+            const allUnique = deduplicateConcepts(list);
+            const subtopics = allUnique.filter(
+              (c) => normalizeConceptName(c.name) !== topicKey
+            );
+            const mastery =
+              allUnique.length > 0
+                ? Math.max(...allUnique.map((c) => c.mastery_score))
+                : 0;
+            return { topic, mastery_score: mastery, concepts: subtopics };
+          });
+
+          setGardenGroups(groupList);
+        }
         if (Array.isArray(gapsRes.data))
           setGaps(deduplicateGaps(gapsRes.data));
         if (Array.isArray(relsRes.data))
@@ -127,9 +168,25 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-sm text-muted-foreground">
-          Loading dashboard...
+      <div className="min-h-screen bg-background">
+        <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center px-6 sticky top-0 z-10">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-8 w-8 rounded-md" />
+            <div className="h-5 w-px bg-border" />
+            <Skeleton className="h-5 w-28" />
+            <div className="h-5 w-px bg-border" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+        </header>
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          <Skeleton className="h-9 w-72 mb-6 rounded-xl" />
+          <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+            <Skeleton className="h-44 w-full rounded-xl" />
+          </div>
         </div>
       </div>
     );
@@ -168,7 +225,7 @@ export default function DashboardPage() {
       {/* Content */}
       <div className="max-w-5xl mx-auto px-6 py-8">
         <Tabs defaultValue="garden">
-          <TabsList className="inline-flex gap-1 bg-muted/50 p-1 rounded-xl mb-6">
+          <TabsList className="inline-flex gap-1 bg-muted/50 rounded-xl mb-6 px-0 py-1">
             <TabsTrigger
               value="garden"
               className="flex items-center gap-2 rounded-lg px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
@@ -196,7 +253,7 @@ export default function DashboardPage() {
             <section className="rounded-2xl border border-border bg-card overflow-hidden">
               <div className="p-5">
                 <KnowledgeGarden
-                  concepts={concepts}
+                  groups={gardenGroups}
                   subjectArea={subjectArea}
                 />
               </div>

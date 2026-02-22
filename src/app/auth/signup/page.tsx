@@ -61,7 +61,7 @@ export default function SignupPage() {
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-        <Card className="w-full max-w-sm bg-card/50 border-border backdrop-blur">
+        <Card className="w-full max-w-sm bg-card border-border">
           <CardContent className="pt-6 text-center">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
               <svg
@@ -119,7 +119,7 @@ export default function SignupPage() {
           </p>
         </div>
 
-        <Card className="bg-card/50 border-border backdrop-blur">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-4">
             <div className="space-y-2">
             </div>

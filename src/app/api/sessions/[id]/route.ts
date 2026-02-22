@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { userOwnsSession } from "@/lib/session-access";
 
 // GET /api/sessions/:id — Get session with messages, concepts, gaps
 export async function GET(
@@ -11,10 +12,19 @@ export async function GET(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  const ownsSession = await userOwnsSession(supabase, id, user.id);
+  if (!ownsSession) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
 
   const [sessionRes, messagesRes, conceptsRes, gapsRes, relsRes] =
     await Promise.all([
-      supabase.from("sessions").select("*").eq("id", id).single(),
+      supabase
+        .from("sessions")
+        .select("*")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single(),
       supabase
         .from("messages")
         .select("*")
@@ -54,13 +64,21 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
+  const ownsSession = await userOwnsSession(supabase, id, user.id);
+  if (!ownsSession) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
 
   // Delete in order due to foreign keys
   await supabase.from("concept_relationships").delete().eq("session_id", id);
   await supabase.from("gaps").delete().eq("session_id", id);
   await supabase.from("concepts").delete().eq("session_id", id);
   await supabase.from("messages").delete().eq("session_id", id);
-  const { error } = await supabase.from("sessions").delete().eq("id", id);
+  const { error } = await supabase
+    .from("sessions")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", user.id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

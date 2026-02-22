@@ -58,7 +58,10 @@ function formatSupabaseError(error: {
     .join(" | ");
 }
 
-export async function ingestDocument(documentId: string) {
+export async function ingestDocument(
+  documentId: string,
+  requesterUserId?: string
+) {
   const { data: document, error: docError } = await supabaseAdmin
     .from("documents")
     .select("user_id, file_path")
@@ -68,6 +71,10 @@ export async function ingestDocument(documentId: string) {
   if (docError || !document) {
     const details = docError ? `: ${formatSupabaseError(docError)}` : "";
     throw new Error(`Document not found${details}`);
+  }
+
+  if (requesterUserId && document.user_id !== requesterUserId) {
+    throw new Error("Forbidden: you do not have access to this document");
   }
 
   await supabaseAdmin

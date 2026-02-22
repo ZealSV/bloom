@@ -15,9 +15,14 @@ import {
 interface UploadProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onUploadComplete?: (fileName: string) => void;
 }
 
-export default function Upload({ open, onOpenChange }: UploadProps) {
+export default function Upload({
+  open,
+  onOpenChange,
+  onUploadComplete,
+}: UploadProps) {
   const inputId = useId();
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -114,6 +119,7 @@ export default function Upload({ open, onOpenChange }: UploadProps) {
       }
 
       setUploadSucceeded(true);
+      onUploadComplete?.(file.name);
       closeTimerRef.current = setTimeout(() => {
         onOpenChange(false);
       }, 900);

@@ -42,6 +42,9 @@ RULES:
 - Ask only ONE question at a time. Don't overwhelm the teacher.
 - Match the complexity level to the topic — be more confused for hard topics
 - Reference earlier parts of the conversation when relevant
+- If reference material is provided, prioritize it over your general knowledge. If it conflicts with your general knowledge, trust the reference.
+- Never introduce new subtopics unless the teacher mentioned them.
+- Stay in learning mode. If the teacher explicitly asks you to explain something, you may give a brief answer, then immediately return to learning mode in the next turn.
 
 STRUCTURED OUTPUT:
 After your conversational response, output a JSON block (fenced with \`\`\`json) containing your analysis:
@@ -80,11 +83,12 @@ MASTERY SCORING RUBRIC (be strict — do NOT inflate scores):
 - 80-100: Deep mastery — teacher explained edge cases, caught your wrong inferences, connected to related concepts
 
 CRITICAL SCORING RULES:
-- A first-time explanation should NEVER score above 50, no matter how good — they haven't been tested yet
+- A first-time explanation should NEVER score above 70, no matter how good — they haven't been tested yet
 - Mastery must be EARNED through multiple exchanges, not given for a single explanation
 - Only increase scores when the teacher successfully handles your probing questions or wrong inferences
 - If the teacher agrees with your wrong inference, DROP the score by at least 15 points
 - Use the "evidence" field to justify every score with specific examples from the conversation
+- If the teacher appears to be copying a source verbatim or giving a highly polished, source-like explanation without personal framing, reduce their mastery score by 10–20 points unless they can restate it in their own words.
 
 The JSON analysis is parsed by the system and NOT shown to the user. Only your conversational response is shown.`;
 
@@ -231,14 +235,38 @@ export type ChatMessage = {
 export async function* streambloomResponse(
   history: ChatMessage[],
   userMessage: string,
+  referenceContext?: string,
 ) {
+  const trimmedUserMessage = userMessage.trim();
+  const lastHistoryMessage = history[history.length - 1];
+  const shouldAppendUserMessage =
+    !!trimmedUserMessage &&
+    !(
+      lastHistoryMessage?.role === "user" &&
+      lastHistoryMessage.content.trim() === trimmedUserMessage
+    );
+
+  const modelMessages: ChatMessage[] = [
+    ...history,
+    ...(shouldAppendUserMessage
+      ? [{ role: "user" as const, content: trimmedUserMessage }]
+      : []),
+  ];
+
   const stream = await openai.chat.completions.create({
     model: "gpt-4o",
     max_tokens: 1024,
     messages: [
       { role: "system", content: bloom_SYSTEM_PROMPT },
-      ...history,
-      { role: "user", content: userMessage },
+      ...(referenceContext
+        ? [
+            {
+              role: "system" as const,
+              content: `REFERENCE MATERIAL (prioritize this over general knowledge):\n${referenceContext}`,
+            },
+          ]
+        : []),
+      ...modelMessages,
     ],
     stream: true,
   });
@@ -260,8 +288,9 @@ export async function* streambloomResponse(
   if (!finalAnalysis) {
     try {
       const transcript = [
-        ...history.map((m) => `${m.role === "user" ? "Teacher" : "bloom"}: ${m.content}`),
-        `Teacher: ${userMessage}`,
+        ...modelMessages.map((m) =>
+          `${m.role === "user" ? "Teacher" : "bloom"}: ${m.content}`
+        ),
         `bloom: ${chatMessage}`,
       ].join("\n");
 

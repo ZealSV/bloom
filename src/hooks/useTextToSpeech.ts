@@ -12,8 +12,13 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
+  const controllerRef = useRef<AbortController | null>(null);
 
   const cleanup = useCallback(() => {
+    if (controllerRef.current) {
+      controllerRef.current.abort();
+      controllerRef.current = null;
+    }
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
       blobUrlRef.current = null;
@@ -42,14 +47,22 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
         URL.revokeObjectURL(blobUrlRef.current);
         blobUrlRef.current = null;
       }
+      if (controllerRef.current) {
+        controllerRef.current.abort();
+        controllerRef.current = null;
+      }
 
       setIsSpeaking(true);
 
       try {
+        const controller = new AbortController();
+        controllerRef.current = controller;
+
         const response = await fetch("/api/tts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text }),
+          signal: controller.signal,
         });
 
         if (!response.ok) {
@@ -58,6 +71,10 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
         }
 
         const blob = await response.blob();
+        if (controller.signal.aborted) {
+          setIsSpeaking(false);
+          return;
+        }
         const url = URL.createObjectURL(blob);
         blobUrlRef.current = url;
 
@@ -90,6 +107,9 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
       }
       if (blobUrlRef.current) {
         URL.revokeObjectURL(blobUrlRef.current);
+      }
+      if (controllerRef.current) {
+        controllerRef.current.abort();
       }
     };
   }, []);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { userOwnsSession } from "@/lib/session-access";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -11,10 +12,16 @@ export async function POST(req: NextRequest) {
   // Load topic for context
   let topic = "";
   if (sessionId) {
+    const ownsSession = await userOwnsSession(supabase, sessionId, user.id);
+    if (!ownsSession) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+
     const { data: session } = await supabase
       .from("sessions")
       .select("topic")
       .eq("id", sessionId)
+      .eq("user_id", user.id)
       .single();
     if (session) {
       topic = session.topic;

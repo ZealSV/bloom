@@ -178,6 +178,235 @@ export type Database = {
           }
         ];
       };
+      subjects: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          color: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          color?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          color?: string | null;
+        };
+        Relationships: [];
+      };
+      lectures: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          transcript: string;
+          summary: Json | null;
+          status: string;
+          duration_seconds: number;
+          subject_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title?: string;
+          transcript?: string;
+          summary?: Json | null;
+          status?: string;
+          duration_seconds?: number;
+          subject_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          transcript?: string;
+          summary?: Json | null;
+          status?: string;
+          duration_seconds?: number;
+          subject_id?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "lectures_subject_id_fkey";
+            columns: ["subject_id"];
+            isOneToOne: false;
+            referencedRelation: "subjects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      flashcard_decks: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          source_type: string;
+          source_ids: string[];
+          card_count: number;
+          subject_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          source_type?: string;
+          source_ids?: string[];
+          card_count?: number;
+          subject_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          source_type?: string;
+          source_ids?: string[];
+          card_count?: number;
+          subject_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "flashcard_decks_subject_id_fkey";
+            columns: ["subject_id"];
+            isOneToOne: false;
+            referencedRelation: "subjects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      flashcards: {
+        Row: {
+          id: string;
+          deck_id: string;
+          front: string;
+          back: string;
+          difficulty: string;
+          times_reviewed: number;
+          times_correct: number;
+          next_review_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          deck_id: string;
+          front: string;
+          back: string;
+          difficulty?: string;
+          times_reviewed?: number;
+          times_correct?: number;
+          next_review_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          deck_id?: string;
+          front?: string;
+          back?: string;
+          difficulty?: string;
+          times_reviewed?: number;
+          times_correct?: number;
+          next_review_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "flashcards_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "flashcard_decks";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      practice_exams: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          questions: Json;
+          source_type: string;
+          source_ids: string[];
+          subject_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          questions?: Json;
+          source_type?: string;
+          source_ids?: string[];
+          subject_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          questions?: Json;
+          source_type?: string;
+          source_ids?: string[];
+          subject_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "practice_exams_subject_id_fkey";
+            columns: ["subject_id"];
+            isOneToOne: false;
+            referencedRelation: "subjects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      exam_attempts: {
+        Row: {
+          id: string;
+          exam_id: string;
+          user_id: string;
+          answers: Json;
+          score: number | null;
+          feedback: Json | null;
+          completed_at: string;
+        };
+        Insert: {
+          id?: string;
+          exam_id: string;
+          user_id: string;
+          answers?: Json;
+          score?: number | null;
+          feedback?: Json | null;
+          completed_at?: string;
+        };
+        Update: {
+          id?: string;
+          exam_id?: string;
+          user_id?: string;
+          answers?: Json;
+          score?: number | null;
+          feedback?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "exam_attempts_exam_id_fkey";
+            columns: ["exam_id"];
+            isOneToOne: false;
+            referencedRelation: "practice_exams";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
