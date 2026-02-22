@@ -197,7 +197,7 @@ export async function POST(req: NextRequest) {
         })
         .filter((c) => visualTypes.has(c.type));
 
-      const maxImages = 3;
+      const maxImages = 2;
       const picked = candidates.slice(0, maxImages);
       console.error("[slides] Generating images:", {
         candidateCount: candidates.length,
