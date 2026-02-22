@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Check, FileText, Mic, MessageSquare, CheckSquare, Square } from "lucide-react";
+import { FileText, Mic, MessageSquare, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase-browser";
 import type { SourceType } from "@/types/study";
@@ -25,6 +25,9 @@ export default function SourceSelector({
 }: SourceSelectorProps) {
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewFilter, setViewFilter] = useState<"all" | "document" | "lecture">(
+    "all"
+  );
   const supabase = createClient();
 
   useEffect(() => {
@@ -35,7 +38,6 @@ export default function SourceSelector({
       let lecturesQuery = supabase
         .from("lectures")
         .select("id, title")
-        .eq("status", "ready")
         .order("created_at", { ascending: false });
       if (subjectId) {
         lecturesQuery = lecturesQuery.eq("subject_id", subjectId);
@@ -94,10 +96,12 @@ export default function SourceSelector({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjectId]);
 
-  const isAll = selected.sourceType === "all";
+  const isAllFilter = viewFilter === "all";
+  const isFilesFilter = viewFilter === "document";
+  const isLecturesFilter = viewFilter === "lecture";
 
   const toggleSource = (source: Source) => {
-    if (isAll) {
+    if (selected.sourceType === "all" || selected.sourceType !== source.type) {
       onSelect(source.type, [source.id]);
       return;
     }
@@ -126,23 +130,64 @@ export default function SourceSelector({
     }
   };
 
+  const visibleSources = sources.filter((source) => {
+    if (viewFilter === "all") return true;
+    if (viewFilter === "lecture") {
+      return source.type === "lecture" || source.type === "session";
+    }
+    return source.type === "document";
+  });
+
+  const emptyStateText =
+    viewFilter === "document"
+      ? "No uploaded files yet."
+      : viewFilter === "lecture"
+        ? "No lectures or chats yet."
+        : "No sources available yet. Add lectures or chat sessions first.";
+
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Button
-          variant={isAll ? "default" : "outline"}
+          variant={isAllFilter ? "default" : "outline"}
           size="sm"
-          onClick={() => onSelect("all", [])}
+          onClick={() => setViewFilter("all")}
           className="text-xs"
         >
-          {isAll ? (
+          {isAllFilter ? (
             <CheckSquare className="mr-1.5 h-3 w-3" />
           ) : (
             <Square className="mr-1.5 h-3 w-3" />
           )}
           All Sources
         </Button>
-        {!isAll && selected.sourceIds.length > 0 && (
+        <Button
+          variant={isFilesFilter ? "default" : "outline"}
+          size="sm"
+          onClick={() => setViewFilter("document")}
+          className="text-xs"
+        >
+          {isFilesFilter ? (
+            <CheckSquare className="mr-1.5 h-3 w-3" />
+          ) : (
+            <Square className="mr-1.5 h-3 w-3" />
+          )}
+          Files
+        </Button>
+        <Button
+          variant={isLecturesFilter ? "default" : "outline"}
+          size="sm"
+          onClick={() => setViewFilter("lecture")}
+          className="text-xs"
+        >
+          {isLecturesFilter ? (
+            <CheckSquare className="mr-1.5 h-3 w-3" />
+          ) : (
+            <Square className="mr-1.5 h-3 w-3" />
+          )}
+          Lectures
+        </Button>
+        {selected.sourceIds.length > 0 && (
           <span className="text-xs text-muted-foreground">
             {selected.sourceIds.length} selected
           </span>
@@ -151,9 +196,10 @@ export default function SourceSelector({
 
       {!loading && sources.length > 0 && (
         <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-border p-2">
-          {sources.map((source) => {
+          {visibleSources.map((source) => {
             const isSelected =
-              !isAll && selected.sourceIds.includes(source.id);
+              selected.sourceType !== "all" &&
+              selected.sourceIds.includes(source.id);
             return (
               <button
                 key={source.id}
@@ -181,7 +227,13 @@ export default function SourceSelector({
 
       {!loading && sources.length === 0 && (
         <p className="text-xs text-muted-foreground">
-          No sources available yet. Add lectures or chat sessions first.
+          {emptyStateText}
+        </p>
+      )}
+
+      {!loading && sources.length > 0 && visibleSources.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          {emptyStateText}
         </p>
       )}
     </div>
