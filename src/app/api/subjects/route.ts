@@ -22,9 +22,11 @@ export async function GET() {
     .order("created_at", { ascending: false });
   data = first.data as any[] | null;
   error = first.error;
+  let docsRelationMissing = false;
 
   if (error && error.code === "PGRST200") {
     console.error("[subjects] Missing documents relation, retrying without it.");
+    docsRelationMissing = true;
     const retry = await supabase
       .from("subjects")
       .select(baseQuery)
@@ -38,6 +40,24 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  let documentCountMap: Map<string, number> | null = null;
+  if (docsRelationMissing) {
+    const { data: docsData, error: docsError } = await supabase
+      .from("documents" as any)
+      .select("subject_id")
+      .not("subject_id", "is", null)
+      .eq("user_id", user.id);
+
+    if (!docsError && Array.isArray(docsData)) {
+      documentCountMap = new Map<string, number>();
+      for (const row of docsData as any[]) {
+        const id = row?.subject_id as string | null;
+        if (!id) continue;
+        documentCountMap.set(id, (documentCountMap.get(id) || 0) + 1);
+      }
+    }
+  }
+
   const subjects = (data || []).map((s: any) => ({
     id: s.id,
     user_id: s.user_id,
@@ -48,7 +68,9 @@ export async function GET() {
     lecture_count: s.lectures?.[0]?.count ?? 0,
     deck_count: s.flashcard_decks?.[0]?.count ?? 0,
     exam_count: s.practice_exams?.[0]?.count ?? 0,
-    document_count: s.documents?.[0]?.count ?? 0,
+    document_count:
+      s.documents?.[0]?.count ??
+      (documentCountMap ? documentCountMap.get(s.id) || 0 : 0),
   }));
 
   return NextResponse.json(subjects);
