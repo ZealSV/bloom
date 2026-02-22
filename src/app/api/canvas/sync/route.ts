@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { decryptToken } from "@/lib/canvas-crypto";
@@ -6,7 +6,7 @@ import { syncCanvasContent } from "@/lib/canvas-sync";
 
 export const maxDuration = 60;
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -38,10 +38,22 @@ export async function POST() {
     );
   }
 
-  const result = await syncCanvasContent(user.id, {
-    token,
-    baseUrl: creds.canvas_base_url,
-  });
+  // Parse optional courseIds from request body
+  let courseIds: number[] | undefined;
+  try {
+    const body = await req.json();
+    if (Array.isArray(body.courseIds) && body.courseIds.length > 0) {
+      courseIds = body.courseIds;
+    }
+  } catch {
+    // Empty body is fine — sync all courses
+  }
+
+  const result = await syncCanvasContent(
+    user.id,
+    { token, baseUrl: creds.canvas_base_url },
+    { courseIds }
+  );
 
   return NextResponse.json(result);
 }

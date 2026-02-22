@@ -9,6 +9,7 @@ export interface SyncResult {
   filesUploaded: number;
   filesSkipped: number;
   filesIngested: number;
+  warnings: string[];
   errors: string[];
   duration: number;
 }
@@ -21,6 +22,14 @@ export interface CanvasStatus {
   lastSyncError?: string;
 }
 
+export interface CanvasCoursePreview {
+  id: number;
+  name: string;
+  course_code: string;
+  term: string | null;
+  alreadySynced: boolean;
+}
+
 export function useCanvasSync() {
   const [status, setStatus] = useState<CanvasStatus>({
     hasCredentials: false,
@@ -29,6 +38,8 @@ export function useCanvasSync() {
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [courses, setCourses] = useState<CanvasCoursePreview[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
 
   const checkCredentials = useCallback(async () => {
     try {
@@ -80,6 +91,7 @@ export function useCanvasSync() {
       await fetch("/api/canvas/credentials", { method: "DELETE" });
       setStatus({ hasCredentials: false });
       setSyncResult(null);
+      setCourses([]);
     } catch {
       setError("Failed to disconnect Canvas");
     } finally {
@@ -87,27 +99,54 @@ export function useCanvasSync() {
     }
   }, []);
 
-  const triggerSync = useCallback(async () => {
-    setSyncing(true);
-    setSyncResult(null);
+  const fetchCourses = useCallback(async () => {
+    setLoadingCourses(true);
     setError(null);
     try {
-      const res = await fetch("/api/canvas/sync", { method: "POST" });
+      const res = await fetch("/api/canvas/courses");
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Sync failed");
-        return null;
+        setError(data.error || "Failed to fetch courses");
+        return [];
       }
-      setSyncResult(data);
-      await checkCredentials(); // Refresh last_sync_at
-      return data as SyncResult;
+      setCourses(data);
+      return data as CanvasCoursePreview[];
     } catch {
-      setError("Network error during sync");
-      return null;
+      setError("Network error fetching courses");
+      return [];
     } finally {
-      setSyncing(false);
+      setLoadingCourses(false);
     }
-  }, [checkCredentials]);
+  }, []);
+
+  const triggerSync = useCallback(
+    async (courseIds?: number[]) => {
+      setSyncing(true);
+      setSyncResult(null);
+      setError(null);
+      try {
+        const res = await fetch("/api/canvas/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ courseIds }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error || "Sync failed");
+          return null;
+        }
+        setSyncResult(data);
+        await checkCredentials(); // Refresh last_sync_at
+        return data as SyncResult;
+      } catch {
+        setError("Network error during sync");
+        return null;
+      } finally {
+        setSyncing(false);
+      }
+    },
+    [checkCredentials]
+  );
 
   return {
     status,
@@ -115,9 +154,12 @@ export function useCanvasSync() {
     syncing,
     syncResult,
     error,
+    courses,
+    loadingCourses,
     checkCredentials,
     saveCredentials,
     removeCredentials,
+    fetchCourses,
     triggerSync,
   };
 }

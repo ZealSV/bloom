@@ -21,7 +21,35 @@ const SUBJECT_COLORS = [
   "yellow",
 ];
 
+// Only PDFs can be chunked + embedded by the existing ingest pipeline
 const INGESTIBLE_CONTENT_TYPES = new Set(["application/pdf"]);
+
+// File types we'll download and store (even if we can't ingest them)
+const UPLOADABLE_EXTENSIONS = new Set([
+  "pdf",
+  "doc",
+  "docx",
+  "ppt",
+  "pptx",
+  "xls",
+  "xlsx",
+  "txt",
+  "csv",
+  "rtf",
+  "odt",
+  "odp",
+  "ods",
+  "png",
+  "jpg",
+  "jpeg",
+  "gif",
+  "svg",
+  "mp3",
+  "mp4",
+  "m4a",
+  "wav",
+  "zip",
+]);
 
 export interface SyncResult {
   success: boolean;
@@ -30,17 +58,24 @@ export interface SyncResult {
   filesUploaded: number;
   filesSkipped: number;
   filesIngested: number;
+  warnings: string[];
   errors: string[];
   duration: number;
 }
 
+export interface SyncOptions {
+  courseIds?: number[];
+}
+
 export async function syncCanvasContent(
   userId: string,
-  creds: CanvasCredentials
+  creds: CanvasCredentials,
+  options: SyncOptions = {}
 ): Promise<SyncResult> {
   const startTime = Date.now();
   const admin = getSupabaseAdmin();
   const errors: string[] = [];
+  const warnings: string[] = [];
   let coursesCreated = 0;
   let coursesSkipped = 0;
   let filesUploaded = 0;
@@ -51,7 +86,7 @@ export async function syncCanvasContent(
   let courses: CanvasCourse[];
   try {
     courses = await listCourses(creds, { currentTermOnly: true });
-  } catch (e) {
+  } catch {
     // Fall back to all courses if term filtering fails
     try {
       courses = await listCourses(creds, { currentTermOnly: false });
@@ -63,10 +98,17 @@ export async function syncCanvasContent(
         filesUploaded: 0,
         filesSkipped: 0,
         filesIngested: 0,
+        warnings: [],
         errors: [`Failed to fetch courses: ${e2}`],
         duration: Date.now() - startTime,
       };
     }
+  }
+
+  // Filter to selected courses if specified
+  if (options.courseIds && options.courseIds.length > 0) {
+    const selectedSet = new Set(options.courseIds);
+    courses = courses.filter((c) => selectedSet.has(c.id));
   }
 
   // 2. For each course, upsert a subject and sync files
@@ -113,15 +155,26 @@ export async function syncCanvasContent(
       let files: CanvasFile[];
       try {
         files = await listCourseFiles(creds, course.id);
-      } catch (e) {
-        errors.push(`[${course.course_code}] Failed to fetch files: ${e}`);
+      } catch (e: any) {
+        // 403 = course restricts file access — just a warning, not an error
+        if (e?.status === 403) {
+          warnings.push(
+            `[${course.course_code}] File access restricted by course — skipped`
+          );
+        } else {
+          warnings.push(
+            `[${course.course_code}] Could not fetch files — skipped`
+          );
+        }
         continue;
       }
 
-      // 4. For each PDF, download + upload + ingest
+      // 4. For each file, download + upload + optionally ingest
       for (const file of files) {
         try {
-          if (!INGESTIBLE_CONTENT_TYPES.has(file.content_type)) {
+          // Check if file extension is worth uploading
+          const ext = (file.filename.split(".").pop() || "").toLowerCase();
+          if (!UPLOADABLE_EXTENSIONS.has(ext)) {
             continue;
           }
 
@@ -144,6 +197,7 @@ export async function syncCanvasContent(
 
           // Create document record
           const fileExt = file.filename.split(".").pop() || "pdf";
+          const canIngest = INGESTIBLE_CONTENT_TYPES.has(file.content_type);
           const { data: doc, error: docErr } = await admin
             .from("documents")
             .insert({
@@ -151,7 +205,7 @@ export async function syncCanvasContent(
               title: file.display_name,
               file_type: file.content_type,
               file_path: "",
-              status: "uploaded",
+              status: canIngest ? "uploaded" : "ready",
               subject_id: subjectId,
               canvas_file_id: file.id,
             })
@@ -189,14 +243,16 @@ export async function syncCanvasContent(
 
           filesUploaded++;
 
-          // Ingest (chunking + embedding)
-          try {
-            await ingestDocument(doc.id);
-            filesIngested++;
-          } catch (e) {
-            errors.push(
-              `[${course.course_code}] Ingest failed for ${file.display_name}: ${e}`
-            );
+          // Ingest (chunking + embedding) — only for PDFs
+          if (canIngest) {
+            try {
+              await ingestDocument(doc.id);
+              filesIngested++;
+            } catch (e) {
+              warnings.push(
+                `[${course.course_code}] Ingest failed for ${file.display_name}: ${e}`
+              );
+            }
           }
         } catch (e) {
           errors.push(
@@ -210,24 +266,27 @@ export async function syncCanvasContent(
   }
 
   // 5. Update sync metadata
+  const hasRealErrors = errors.length > 0;
   await admin
     .from("canvas_credentials")
     .update({
       last_sync_at: new Date().toISOString(),
-      last_sync_status: errors.length === 0 ? "success" : "partial",
-      last_sync_error:
-        errors.length > 0 ? errors.join("; ").slice(0, 2000) : null,
+      last_sync_status: hasRealErrors ? "partial" : "success",
+      last_sync_error: hasRealErrors
+        ? errors.join("; ").slice(0, 2000)
+        : null,
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", userId);
 
   return {
-    success: errors.length === 0,
+    success: !hasRealErrors,
     coursesCreated,
     coursesSkipped,
     filesUploaded,
     filesSkipped,
     filesIngested,
+    warnings,
     errors,
     duration: Date.now() - startTime,
   };

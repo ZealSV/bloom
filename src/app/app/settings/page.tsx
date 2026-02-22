@@ -1,13 +1,20 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Loader2, RefreshCw, Unplug } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  RefreshCw,
+  Unplug,
+  Check,
+  AlertTriangle,
+} from "lucide-react";
 import CanvasSetupForm from "@/components/canvas/CanvasSetupForm";
-import { useCanvasSync } from "@/hooks/useCanvasSync";
+import { useCanvasSync, type CanvasCoursePreview } from "@/hooks/useCanvasSync";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -17,15 +24,58 @@ export default function SettingsPage() {
     syncing,
     syncResult,
     error,
+    courses,
+    loadingCourses,
     checkCredentials,
     saveCredentials,
     removeCredentials,
+    fetchCourses,
     triggerSync,
   } = useCanvasSync();
+
+  const [showCoursePicker, setShowCoursePicker] = useState(false);
+  const [selectedCourseIds, setSelectedCourseIds] = useState<Set<number>>(
+    new Set()
+  );
 
   useEffect(() => {
     checkCredentials();
   }, [checkCredentials]);
+
+  const handleSyncClick = async () => {
+    const fetched = await fetchCourses();
+    if (fetched.length > 0) {
+      // Pre-select courses that aren't already synced
+      const unsynced = fetched
+        .filter((c: CanvasCoursePreview) => !c.alreadySynced)
+        .map((c: CanvasCoursePreview) => c.id);
+      setSelectedCourseIds(new Set(unsynced));
+      setShowCoursePicker(true);
+    }
+  };
+
+  const handleSyncSelected = async () => {
+    setShowCoursePicker(false);
+    const ids = Array.from(selectedCourseIds);
+    await triggerSync(ids.length > 0 ? ids : undefined);
+  };
+
+  const toggleCourse = (id: number) => {
+    setSelectedCourseIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedCourseIds(new Set(courses.map((c) => c.id)));
+  };
+
+  const selectNone = () => {
+    setSelectedCourseIds(new Set());
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -53,11 +103,11 @@ export default function SettingsPage() {
         {/* Canvas Section */}
         <section>
           <h2 className="font-outfit text-lg font-semibold text-foreground mb-1">
-            Canvas
+            Canvas LMS
           </h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Connect your Canvas account to automatically import courses and
-            files into your buckets.
+            Connect your Canvas account to import courses and files into your
+            buckets.
           </p>
 
           <div className="rounded-xl border border-border bg-card p-5">
@@ -92,9 +142,96 @@ export default function SettingsPage() {
 
                 {status.lastSyncAt && (
                   <p className="text-xs text-muted-foreground">
-                    Last synced: {new Date(status.lastSyncAt).toLocaleString()}
+                    Last synced:{" "}
+                    {new Date(status.lastSyncAt).toLocaleString()}
                   </p>
                 )}
+
+                {/* Course Picker */}
+                <AnimatePresence>
+                  {showCoursePicker && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-medium text-foreground">
+                            Select courses to sync
+                          </p>
+                          <div className="flex gap-2 text-xs">
+                            <button
+                              onClick={selectAll}
+                              className="text-primary hover:underline"
+                            >
+                              All
+                            </button>
+                            <span className="text-muted-foreground">/</span>
+                            <button
+                              onClick={selectNone}
+                              className="text-primary hover:underline"
+                            >
+                              None
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1 max-h-64 overflow-y-auto">
+                          {courses.map((course) => (
+                            <label
+                              key={course.id}
+                              className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-muted/50 cursor-pointer transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedCourseIds.has(course.id)}
+                                onChange={() => toggleCourse(course.id)}
+                                className="rounded border-border text-primary focus:ring-primary/20 h-4 w-4"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-foreground truncate">
+                                  {course.name}
+                                </p>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {course.course_code}
+                                  {course.term && ` · ${course.term}`}
+                                  {course.alreadySynced && (
+                                    <span className="ml-1 text-emerald-600">
+                                      · synced
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <Button
+                            onClick={handleSyncSelected}
+                            disabled={selectedCourseIds.size === 0}
+                            size="sm"
+                            className="h-8"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                            Sync {selectedCourseIds.size} course
+                            {selectedCourseIds.size !== 1 ? "s" : ""}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8"
+                            onClick={() => setShowCoursePicker(false)}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Sync result */}
                 {syncResult && (
@@ -103,7 +240,10 @@ export default function SettingsPage() {
                     animate={{ opacity: 1, y: 0 }}
                     className="rounded-lg border border-border bg-muted/30 p-3 text-xs space-y-1"
                   >
-                    <p className="font-medium text-foreground">Sync complete</p>
+                    <p className="font-medium text-foreground flex items-center gap-1.5">
+                      <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      Sync complete
+                    </p>
                     <p className="text-muted-foreground">
                       {syncResult.coursesCreated} courses created,{" "}
                       {syncResult.coursesSkipped} skipped
@@ -113,8 +253,18 @@ export default function SettingsPage() {
                       {syncResult.filesIngested} ingested,{" "}
                       {syncResult.filesSkipped} skipped
                     </p>
+                    {syncResult.warnings && syncResult.warnings.length > 0 && (
+                      <div className="text-yellow-600 space-y-0.5">
+                        {syncResult.warnings.map((w: string, i: number) => (
+                          <p key={i} className="flex items-start gap-1">
+                            <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
+                            {w}
+                          </p>
+                        ))}
+                      </div>
+                    )}
                     {syncResult.errors.length > 0 && (
-                      <p className="text-yellow-600">
+                      <p className="text-destructive">
                         {syncResult.errors.length} error(s) —{" "}
                         {syncResult.errors[0]}
                       </p>
@@ -130,14 +280,19 @@ export default function SettingsPage() {
                 {/* Actions */}
                 <div className="flex items-center gap-2">
                   <Button
-                    onClick={triggerSync}
-                    disabled={syncing}
+                    onClick={handleSyncClick}
+                    disabled={syncing || loadingCourses}
                     className="h-9"
                   >
                     {syncing ? (
                       <>
                         <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
                         Syncing...
+                      </>
+                    ) : loadingCourses ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                        Loading courses...
                       </>
                     ) : (
                       <>
