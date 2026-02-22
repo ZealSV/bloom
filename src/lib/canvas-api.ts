@@ -190,9 +190,9 @@ export async function listCourseFiles(
     // Fall through to module-based approach
   }
 
-  // Fallback: get files via modules → module items → file details
-  const files: CanvasFile[] = [];
+  // Fallback: get files via modules → module items → batch file details
   const seenFileIds = new Set<number>();
+  const fileContentIds: number[] = [];
 
   try {
     const modules = await canvasRequestPaginated<{ id: number }>(
@@ -200,34 +200,49 @@ export async function listCourseFiles(
       `/courses/${courseId}/modules`,
     );
 
-    for (const mod of modules) {
-      try {
-        const items = await canvasRequestPaginated<CanvasModuleItem>(
+    // Fetch all module items in parallel (one request per module)
+    const itemResults = await Promise.allSettled(
+      modules.map((mod) =>
+        canvasRequestPaginated<CanvasModuleItem>(
           creds,
           `/courses/${courseId}/modules/${mod.id}/items`,
-        );
+        )
+      )
+    );
 
-        for (const item of items) {
-          if (item.type !== "File" || !item.content_id) continue;
-          if (seenFileIds.has(item.content_id)) continue;
-          seenFileIds.add(item.content_id);
-
-          try {
-            const file = await canvasRequest<CanvasFile>(
-              creds,
-              `/courses/${courseId}/files/${item.content_id}`,
-            );
-            files.push(file);
-          } catch {
-            // Individual file fetch failed — skip it
-          }
-        }
-      } catch {
-        // Module items fetch failed — skip this module
+    for (const result of itemResults) {
+      if (result.status !== "fulfilled") continue;
+      for (const item of result.value) {
+        if (item.type !== "File" || !item.content_id) continue;
+        if (seenFileIds.has(item.content_id)) continue;
+        seenFileIds.add(item.content_id);
+        fileContentIds.push(item.content_id);
       }
     }
   } catch {
-    // Modules endpoint also failed — course truly restricts everything
+    // Modules endpoint failed — course truly restricts everything
+    return [];
+  }
+
+  // Fetch file details in parallel batches of 10
+  const files: CanvasFile[] = [];
+  const BATCH_SIZE = 10;
+
+  for (let i = 0; i < fileContentIds.length; i += BATCH_SIZE) {
+    const batch = fileContentIds.slice(i, i + BATCH_SIZE);
+    const results = await Promise.allSettled(
+      batch.map((id) =>
+        canvasRequest<CanvasFile>(
+          creds,
+          `/courses/${courseId}/files/${id}`,
+        )
+      )
+    );
+    for (const result of results) {
+      if (result.status === "fulfilled") {
+        files.push(result.value);
+      }
+    }
   }
 
   return files;

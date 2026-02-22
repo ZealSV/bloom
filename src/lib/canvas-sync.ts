@@ -24,33 +24,6 @@ const SUBJECT_COLORS = [
 // Only PDFs can be chunked + embedded by the existing ingest pipeline
 const INGESTIBLE_CONTENT_TYPES = new Set(["application/pdf"]);
 
-// File types we'll download and store (even if we can't ingest them)
-const UPLOADABLE_EXTENSIONS = new Set([
-  "pdf",
-  "doc",
-  "docx",
-  "ppt",
-  "pptx",
-  "xls",
-  "xlsx",
-  "txt",
-  "csv",
-  "rtf",
-  "odt",
-  "odp",
-  "ods",
-  "png",
-  "jpg",
-  "jpeg",
-  "gif",
-  "svg",
-  "mp3",
-  "mp4",
-  "m4a",
-  "wav",
-  "zip",
-]);
-
 export interface SyncResult {
   success: boolean;
   coursesCreated: number;
@@ -166,23 +139,22 @@ export async function syncCanvasContent(
       // 4. For each file, download + upload + optionally ingest
       for (const file of files) {
         try {
-          // Check if file extension is worth uploading
-          const ext = (file.filename.split(".").pop() || "").toLowerCase();
-          if (!UPLOADABLE_EXTENSIONS.has(ext)) {
-            continue;
-          }
-
-          // Dedup check
+          // Dedup: skip only if a doc with this canvas_file_id was actually uploaded
           const { data: existingDoc } = await admin
             .from("documents")
-            .select("id")
+            .select("id, file_path")
             .eq("user_id", userId)
             .eq("canvas_file_id", file.id)
             .maybeSingle();
 
-          if (existingDoc) {
+          if (existingDoc && existingDoc.file_path) {
             filesSkipped++;
             continue;
+          }
+
+          // Clean up orphaned record from a failed previous sync
+          if (existingDoc && !existingDoc.file_path) {
+            await admin.from("documents").delete().eq("id", existingDoc.id);
           }
 
           // Download from Canvas
