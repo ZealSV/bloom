@@ -158,7 +158,6 @@ export default function BucketsPage() {
       setDialogOpen(false);
       setNewName("");
       setSelectedColor("blue");
-      router.push(`/app/buckets/${subject.id}`);
     }
   };
 
