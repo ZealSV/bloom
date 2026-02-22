@@ -24,9 +24,19 @@ export async function POST(req: NextRequest) {
   });
 
   if (!ctxRes.ok) {
+    let message = "Failed to aggregate context";
+    try {
+      const body = await ctxRes.json();
+      if (typeof body?.error === "string" && body.error.trim()) {
+        message = body.error;
+      }
+    } catch {
+      // Fall back to generic message when context route did not return JSON.
+    }
+
     return NextResponse.json(
-      { error: "Failed to aggregate context" },
-      { status: 500 }
+      { error: message },
+      { status: ctxRes.status || 500 }
     );
   }
 
