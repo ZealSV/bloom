@@ -244,7 +244,7 @@ export default function DashboardPage() {
           <TabsContent value="mastery">
             <section className="rounded-2xl border border-border bg-card overflow-hidden">
               <div className="p-5">
-                <MasteryDashboard concepts={concepts} gaps={gaps} />
+                <MasteryDashboard concepts={concepts} gaps={gaps} sessions={sessions} />
               </div>
             </section>
           </TabsContent>

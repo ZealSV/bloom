@@ -60,6 +60,7 @@ function getLinkStyle(relationship: string): string {
 }
 
 const GRAPH_HEIGHT = 450;
+const NODE_PADDING = 40;
 
 export default function ConceptGraph({
   concepts,
@@ -69,7 +70,55 @@ export default function ConceptGraph({
   const containerRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const nodesRef = useRef<GraphNode[]>([]);
   const [width, setWidth] = useState(400);
+
+  const zoomToFit = useCallback(() => {
+    if (!svgRef.current || !zoomRef.current || nodesRef.current.length === 0) return;
+    const svg = d3.select(svgRef.current);
+    const nodes = nodesRef.current;
+    const currentWidth = svgRef.current.clientWidth || width;
+    const height = GRAPH_HEIGHT;
+
+    // Calculate bounding box of all nodes
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const n of nodes) {
+      const x = n.x ?? 0;
+      const y = n.y ?? 0;
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+    }
+
+    // Add padding for node radius + labels
+    const pad = 60;
+    minX -= pad;
+    maxX += pad;
+    minY -= pad;
+    maxY += pad;
+
+    const bboxWidth = maxX - minX;
+    const bboxHeight = maxY - minY;
+
+    if (bboxWidth <= 0 || bboxHeight <= 0) return;
+
+    const scale = Math.min(
+      currentWidth / bboxWidth,
+      height / bboxHeight,
+      2 // don't zoom in too much
+    ) * 0.9; // 90% to leave a small margin
+
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    const transform = d3.zoomIdentity
+      .translate(currentWidth / 2, height / 2)
+      .scale(scale)
+      .translate(-centerX, -centerY);
+
+    svg.transition().duration(500).call(zoomRef.current.transform as any, transform);
+  }, [width]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -115,6 +164,8 @@ export default function ConceptGraph({
       status: c.status,
     }));
 
+    nodesRef.current = nodes;
+
     const nodeNames = new Set(nodes.map((n) => n.id));
 
     const links: GraphLink[] = relationships
@@ -140,13 +191,16 @@ export default function ConceptGraph({
       )
       .force("charge", d3.forceManyBody().strength(-200))
       .force("center", d3.forceCenter(width / 2, height / 2))
-      .force("collision", d3.forceCollide().radius(35));
+      .force("collision", d3.forceCollide().radius(40))
+      // Keep nodes from drifting too far from center
+      .force("x", d3.forceX(width / 2).strength(0.05))
+      .force("y", d3.forceY(height / 2).strength(0.05));
 
     // Zoom
     const g = svg.append("g");
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.3, 3])
+      .scaleExtent([0.2, 4])
       .on("zoom", (event) => {
         g.attr("transform", event.transform);
       });
@@ -232,18 +286,45 @@ export default function ConceptGraph({
       .attr("fill-opacity", 0.3)
       .style("cursor", "pointer");
 
+    // Label background rects (added before text for readability)
+    node.append("rect")
+      .attr("fill", "hsl(var(--card))")
+      .attr("fill-opacity", 0.8)
+      .attr("rx", 3)
+      .attr("ry", 3)
+      .attr("pointer-events", "none");
+
     // Labels
-    node
+    const label = node
       .append("text")
       .text((d) => d.name)
       .attr("text-anchor", "middle")
-      .attr("dy", (d) => -(10 + (d.mastery / 100) * 8))
+      .attr("dy", (d) => (10 + (d.mastery / 100) * 8) + 14)
       .attr("fill", "#94a3b8")
       .attr("font-size", "11px")
       .attr("font-family", "Inter, sans-serif")
       .attr("pointer-events", "none");
 
+    // Size the background rects to fit the text
+    label.each(function () {
+      const bbox = (this as SVGTextElement).getBBox();
+      const parent = (this as SVGTextElement).parentElement;
+      if (parent) {
+        const bg = d3.select(parent).select("rect");
+        bg.attr("x", bbox.x - 3)
+          .attr("y", bbox.y - 1)
+          .attr("width", bbox.width + 6)
+          .attr("height", bbox.height + 2);
+      }
+    });
+
     simulation.on("tick", () => {
+      // Clamp node positions to keep them within reasonable bounds
+      for (const d of nodes) {
+        d.x = Math.max(NODE_PADDING, Math.min(width - NODE_PADDING, d.x ?? width / 2));
+        d.y = Math.max(NODE_PADDING, Math.min(height - NODE_PADDING, d.y ?? height / 2));
+      }
+
       link
         .attr("x1", (d: any) => d.source.x)
         .attr("y1", (d: any) => d.source.y)
@@ -253,10 +334,15 @@ export default function ConceptGraph({
       node.attr("transform", (d: any) => `translate(${d.x},${d.y})`);
     });
 
+    // Auto zoom-to-fit once the simulation settles
+    simulation.on("end", () => {
+      zoomToFit();
+    });
+
     return () => {
       simulation.stop();
     };
-  }, [concepts, relationships, width]);
+  }, [concepts, relationships, width, zoomToFit]);
 
   const handleZoomIn = useCallback(() => {
     if (!svgRef.current || !zoomRef.current) return;
@@ -271,13 +357,10 @@ export default function ConceptGraph({
   }, []);
 
   const handleZoomReset = useCallback(() => {
-    if (!svgRef.current || !zoomRef.current) return;
-    const svg = d3.select(svgRef.current);
-    svg
-      .transition()
-      .duration(300)
-      .call(zoomRef.current.transform as any, d3.zoomIdentity);
-  }, []);
+    zoomToFit();
+  }, [zoomToFit]);
+
+  const validLinks = getValidLinks(relationships, concepts);
 
   return (
     <div className="w-full" ref={containerRef}>
@@ -287,17 +370,17 @@ export default function ConceptGraph({
         </h3>
         {concepts.length > 0 && (
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3 text-[9px] text-muted-foreground/60">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-primary" />
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-primary" />
                 Mastered
               </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-yellow-500" />
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-yellow-500" />
                 In Progress
               </span>
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-destructive" />
+              <span className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-destructive" />
                 Gap
               </span>
             </div>
@@ -313,7 +396,7 @@ export default function ConceptGraph({
               <button
                 onClick={handleZoomReset}
                 className="p-1.5 hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                title="Reset zoom"
+                title="Fit to view"
               >
                 <Maximize2 className="h-3 w-3" />
               </button>
@@ -360,23 +443,23 @@ export default function ConceptGraph({
       </div>
 
       {/* Relationship type legend */}
-      {concepts.length > 0 && links(relationships, concepts).length > 0 && (
-        <div className="flex items-center justify-center gap-4 mt-2 text-[9px] text-muted-foreground/60">
-          <span className="flex items-center gap-1.5">
-            <svg width="16" height="6"><line x1="0" y1="3" x2="16" y2="3" stroke="#f59e0b" strokeWidth="1.5" /></svg>
-            requires
+      {concepts.length > 0 && validLinks.length > 0 && (
+        <div className="flex items-center justify-center gap-5 mt-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-2">
+            <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="#f59e0b" strokeWidth="2" /></svg>
+            Requires
           </span>
-          <span className="flex items-center gap-1.5">
-            <svg width="16" height="6"><line x1="0" y1="3" x2="16" y2="3" stroke="#4ade80" strokeWidth="1.5" strokeDasharray="4,2" /></svg>
-            supports
+          <span className="flex items-center gap-2">
+            <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="#4ade80" strokeWidth="2" strokeDasharray="5,3" /></svg>
+            Supports
           </span>
-          <span className="flex items-center gap-1.5">
-            <svg width="16" height="6"><line x1="0" y1="3" x2="16" y2="3" stroke="#60a5fa" strokeWidth="1.5" strokeDasharray="2,2" /></svg>
-            example of
+          <span className="flex items-center gap-2">
+            <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="#60a5fa" strokeWidth="2" strokeDasharray="2,2" /></svg>
+            Example of
           </span>
-          <span className="flex items-center gap-1.5">
-            <svg width="16" height="6"><line x1="0" y1="3" x2="16" y2="3" stroke="#f43f5e" strokeWidth="1.5" strokeDasharray="6,2,2,2" /></svg>
-            contradicts
+          <span className="flex items-center gap-2">
+            <svg width="24" height="8"><line x1="0" y1="4" x2="24" y2="4" stroke="#f43f5e" strokeWidth="2" strokeDasharray="6,2,2,2" /></svg>
+            Contradicts
           </span>
         </div>
       )}
@@ -385,7 +468,7 @@ export default function ConceptGraph({
 }
 
 /** Helper to check if there are valid links to show the legend */
-function links(relationships: ConceptRelationship[], concepts: Concept[]): ConceptRelationship[] {
+function getValidLinks(relationships: ConceptRelationship[], concepts: Concept[]): ConceptRelationship[] {
   const names = new Set(concepts.map((c) => c.name));
   return relationships.filter((r) => names.has(r.from_concept) && names.has(r.to_concept));
 }
