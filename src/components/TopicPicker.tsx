@@ -229,7 +229,6 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
                 </span>
               </button>
             </motion.div>
-
             {/* Heading */}
             <motion.div
               className="text-center mb-8"
@@ -245,7 +244,6 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
                 Choose how you want to teach bloom
               </h2>
             </motion.div>
-
             {/* Mode cards */}
             <div className="space-y-3">
               <motion.button

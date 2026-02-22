@@ -1,16 +1,24 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, useScroll, useTransform, useSpring } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { ArrowRight, MessageCircle, Sprout, GitFork, Zap } from "lucide-react";
+import { createClient } from "@/lib/supabase-browser";
 
 const gentle = { type: "spring" as const, stiffness: 200, damping: 20, mass: 1 };
 
 export default function LandingPage() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => {
+      if (data.user) setIsLoggedIn(true);
+    });
+  }, []);
+
   const { scrollY } = useScroll();
 
   const navTextOpacity = useSpring(useTransform(scrollY, [0, 80], [1, 0]), {
@@ -39,12 +47,12 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background relative">
       <div className="fixed inset-0 pointer-events-none z-[60] hidden lg:block">
         <div className="max-w-5xl mx-auto h-full relative">
-          <div className="absolute left-0 top-0 bottom-0 w-px bg-border/40" />
-          <div className="absolute right-0 top-0 bottom-0 w-px bg-border/40" />
+          <div className="absolute left-0 top-0 bottom-0 w-[1.5px] bg-border/60" />
+          <div className="absolute right-0 top-0 bottom-0 w-[1.5px] bg-border/60" />
         </div>
       </div>
 
-      <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
+      <nav className="sticky top-0 z-50 border-b-[1.5px] border-border bg-background/80 backdrop-blur-md">
         <div className="max-w-5xl mx-auto flex items-center justify-between px-4 sm:px-6 md:px-12 h-14">
           <Link href="/" className="flex items-center gap-0 overflow-hidden">
             <div className="shrink-0">
@@ -63,17 +71,25 @@ export default function LandingPage() {
             </motion.span>
           </Link>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="text-xs h-8" asChild>
-              <Link href="/auth/login">Log in</Link>
-            </Button>
-            <Button size="sm" className="text-xs h-8" asChild>
-              <Link href="/auth/signup">Get started</Link>
-            </Button>
+            {isLoggedIn ? (
+              <Button size="sm" className="text-xs h-8" asChild>
+                <Link href="/app">Enter<ArrowRight className="ml-1.5 h-3 w-3" /></Link>
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" className="text-xs h-8" asChild>
+                  <Link href="/auth/login">Log in</Link>
+                </Button>
+                <Button size="sm" className="text-xs h-8" asChild>
+                  <Link href="/auth/signup">Get started</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </nav>
 
-      <section className="relative z-10 border-b border-border">
+      <section className="relative z-10 border-b-[1.5px] border-border">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-12 pt-20 sm:pt-32 pb-16 sm:pb-24">
           <motion.div
             initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
@@ -89,8 +105,8 @@ export default function LandingPage() {
             </p>
             <div className="flex items-center gap-3">
               <Button size="lg" className="h-11 px-6 text-sm" asChild>
-                <Link href="/auth/signup">
-                  Start teaching
+                <Link href={isLoggedIn ? "/app" : "/auth/signup"}>
+                  {isLoggedIn ? "Enter" : "Start teaching"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
               </Button>
@@ -102,11 +118,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="how" className="relative z-10 border-b border-border scroll-mt-14">
+      <section id="how" className="relative z-10 border-b-[1.5px] border-border scroll-mt-14">
         <StickyHowItWorks />
       </section>
 
-      <section className="relative z-10 border-b border-border">
+      <section className="relative z-10 border-b-[1.5px] border-border">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-12 py-16 sm:py-24">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={gentle}>
             <p className="text-xs text-muted-foreground tracking-widest uppercase mb-3">Features</p>
@@ -139,13 +155,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="relative z-10 border-b border-border">
+      <section className="relative z-10 border-b-[1.5px] border-border">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-12 py-20 sm:py-32 text-center">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={gentle}>
             <h2 className="font-outfit text-2xl sm:text-4xl font-bold text-foreground tracking-tight mb-4">Ready to teach?</h2>
             <p className="text-muted-foreground mb-8 max-w-sm mx-auto">Discover what you truly know. Start your first session.</p>
             <Button size="lg" className="h-11 px-8 text-sm" asChild>
-              <Link href="/auth/signup">Get started<ArrowRight className="ml-2 h-4 w-4" /></Link>
+              <Link href={isLoggedIn ? "/app" : "/auth/signup"}>
+                {isLoggedIn ? "Enter" : "Get started"}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
             </Button>
           </motion.div>
         </div>
@@ -285,69 +304,8 @@ function GardenVisual() {
   return (
     <div className="w-full h-full flex items-center justify-center">
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full max-w-[320px]" style={{ overflow: "visible" }}>
-        <defs>
-          <linearGradient id="lp-sky" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#050805" />
-            <stop offset="60%" stopColor="#0a120a" />
-            <stop offset="100%" stopColor="#111c11" />
-          </linearGradient>
-          <linearGradient id="lp-ground" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#1a2e1a" />
-            <stop offset="100%" stopColor="#0a0f0a" />
-          </linearGradient>
-          <radialGradient id="lp-glow" cx="50%" cy="80%" r="50%">
-            <stop offset="0%" stopColor="rgba(74,222,128,0.15)" />
-            <stop offset="100%" stopColor="transparent" />
-          </radialGradient>
-        </defs>
-
-        {/* Sky */}
-        <rect width={width} height={height} rx={16} fill="url(#lp-sky)" />
-
-        {/* Glow */}
-        <motion.ellipse
-          cx={width / 2}
-          cy={groundY}
-          rx={140}
-          ry={60}
-          fill="url(#lp-glow)"
-          animate={{ opacity: [0.4, 0.7, 0.4] }}
-          transition={{ duration: 5, repeat: Infinity }}
-        />
-
-        {/* Stars */}
-        {Array.from({ length: 15 }).map((_, i) => (
-          <motion.circle
-            key={`star-${i}`}
-            cx={15 + ((i * 47 + 13) % (width - 30))}
-            cy={10 + ((i * 31 + 7) % (groundY - 40))}
-            r={0.5 + (i % 3) * 0.4}
-            fill="#fff"
-            animate={{ opacity: [0.15, 0.5, 0.15] }}
-            transition={{ duration: 3 + (i % 4), repeat: Infinity, delay: (i % 5) * 0.8 }}
-          />
-        ))}
-
-        {/* Ground */}
-        <rect x={0} y={groundY} width={width} height={height - groundY} fill="url(#lp-ground)" />
-        <line x1={0} y1={groundY} x2={width} y2={groundY} stroke="rgba(74,222,128,0.2)" strokeWidth={1} />
-
-        {/* Grass tufts */}
-        {Array.from({ length: 10 }).map((_, i) => (
-          <motion.line
-            key={`g-${i}`}
-            x1={16 + i * 30 + (i % 3) * 5}
-            y1={groundY}
-            x2={16 + i * 30 + (i % 3) * 5 + (i % 2 === 0 ? 3 : -3)}
-            y2={groundY - 4 - (i % 3) * 2}
-            stroke="rgba(74,222,128,0.15)"
-            strokeWidth={1}
-            strokeLinecap="round"
-            animate={{ rotate: [-2, 2, -2] }}
-            transition={{ duration: 2 + (i % 3) * 0.5, repeat: Infinity }}
-            style={{ transformOrigin: `${16 + i * 30 + (i % 3) * 5}px ${groundY}px` }}
-          />
-        ))}
+        {/* Subtle ground line */}
+        <line x1={20} y1={groundY} x2={width - 20} y2={groundY} className="stroke-border" strokeWidth={1} strokeLinecap="round" />
 
         {/* Flowers at different stages */}
         {flowers.map((f, i) => {
@@ -460,7 +418,7 @@ function GardenVisual() {
               {stage === "full" && (
                 <g>
                   <motion.circle cx={f.x} cy={groundY - 72} r={20} fill={petal}
-                    animate={{ opacity: [0.05, 0.15, 0.05] }}
+                    animate={{ opacity: [0.05, 0.12, 0.05] }}
                     transition={{ duration: 3, repeat: Infinity }}
                   />
                   <motion.g
@@ -513,8 +471,9 @@ function GardenVisual() {
                         cx={f.x + (pi - 1) * 15}
                         cy={groundY - 72 + (pi - 1) * 10}
                         r={1}
-                        fill="#fff"
-                        animate={{ y: [0, -18, -36], opacity: [0, 0.8, 0] }}
+                        fill={petal}
+                        opacity={0.5}
+                        animate={{ y: [0, -18, -36], opacity: [0, 0.6, 0] }}
                         transition={{ duration: 2.5, repeat: Infinity, delay: pi * 0.7 }}
                       />
                     ))}
@@ -527,7 +486,7 @@ function GardenVisual() {
                 x={f.x}
                 y={groundY + 18}
                 textAnchor="middle"
-                fill="#94a3b8"
+                className="fill-muted-foreground"
                 fontSize={7}
                 fontFamily="Inter, sans-serif"
               >

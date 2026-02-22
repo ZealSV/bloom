@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import {
   useRealtimeVoice,
+  stopAllStreams,
   type TranscriptMessage,
   type RealtimeStatus,
 } from "@/hooks/useRealtimeVoice";
@@ -116,6 +117,8 @@ export default function LiveVoiceMode({
 
   const handleExit = useCallback(() => {
     disconnect();
+    // Nuclear cleanup — guarantees mic release regardless of ref state
+    stopAllStreams();
     onExit(transcriptRef.current);
   }, [disconnect, onExit]);
 

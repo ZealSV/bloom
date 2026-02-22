@@ -1,7 +1,21 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { buildVoiceInstructions } from "@/lib/realtime-prompts";
+
+// Module-level set tracking every MediaStream we create.
+// Guarantees mic release even if React refs get out of sync.
+const activeStreams = new Set<MediaStream>();
+
+/** Stop and remove all tracked streams — exported for external cleanup. */
+export function stopAllStreams() {
+  activeStreams.forEach((s) => {
+    s.getTracks().forEach((t) => {
+      t.enabled = false;
+      t.stop();
+    });
+  });
+  activeStreams.clear();
+}
 
 export interface TranscriptMessage {
   role: "student" | "bloom";
@@ -50,6 +64,7 @@ export function useRealtimeVoice({
   const currentBloomText = useRef("");
   const lastStudentRef = useRef<{ text: string; at: number } | null>(null);
   const disconnectedRef = useRef(false);
+  const responseActiveRef = useRef(false);
   const onByeRef = useRef(onBye);
 
   // Keep onBye ref current without re-creating callbacks
@@ -87,13 +102,9 @@ export function useRealtimeVoice({
     }
 
     // 4. Stop ALL mic tracks — this releases the browser mic indicator
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => {
-        t.enabled = false;
-        t.stop();
-      });
-      streamRef.current = null;
-    }
+    // Use module-level tracker to guarantee cleanup even if refs are stale
+    stopAllStreams();
+    streamRef.current = null;
 
     // 5. Stop all tracks on peer connection + close it
     if (pcRef.current) {
@@ -140,6 +151,7 @@ export function useRealtimeVoice({
     setTranscript([]);
     currentBloomText.current = "";
     lastStudentRef.current = null;
+    responseActiveRef.current = false;
     disconnectedRef.current = false;
 
     try {
@@ -159,10 +171,6 @@ export function useRealtimeVoice({
 
       const tokenData = await tokenRes.json();
       const clientSecret = tokenData.clientSecret;
-      const referenceContext =
-        typeof tokenData.referenceContext === "string"
-          ? tokenData.referenceContext
-          : "";
 
       if (!clientSecret) {
         throw new Error("No client secret returned");
@@ -172,6 +180,7 @@ export function useRealtimeVoice({
 
       // ── 2. Get microphone ──
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      activeStreams.add(stream);
       streamRef.current = stream;
 
       if (disconnectedRef.current) {
@@ -204,19 +213,30 @@ export function useRealtimeVoice({
       const dc = pc.createDataChannel("oai-events");
       dcRef.current = dc;
 
-      const instructions =
-        buildVoiceInstructions(topic, referenceContext) +
-        "\n\nIMPORTANT: Always respond in English.";
-
       dc.onopen = () => {
-        // Only update instructions — turn_detection and transcription
-        // are configured at session creation via client_secrets.
+        // Reinforce VAD + transcription config via session.update.
+        // Uses nested format (required when type: "realtime" is present).
         dc.send(
           JSON.stringify({
             type: "session.update",
             session: {
               type: "realtime",
-              instructions,
+              audio: {
+                input: {
+                  transcription: {
+                    model: "gpt-4o-transcribe",
+                    language: "en",
+                  },
+                  turn_detection: {
+                    type: "server_vad",
+                    threshold: 0.5,
+                    prefix_padding_ms: 300,
+                    silence_duration_ms: 800,
+                    create_response: true,
+                    interrupt_response: true,
+                  },
+                },
+              },
             },
           })
         );
@@ -243,6 +263,8 @@ export function useRealtimeVoice({
 
             case "input_audio_buffer.speech_stopped":
               setStatus("thinking");
+              // VAD's create_response: true handles response triggering.
+              // Do NOT also send response.create — it causes double responses.
               break;
 
             // ── Bloom response transcript ──
@@ -310,10 +332,12 @@ export function useRealtimeVoice({
 
             // ── Response lifecycle ──
             case "response.created":
+              responseActiveRef.current = true;
               setStatus("speaking");
               break;
 
             case "response.done":
+              responseActiveRef.current = false;
               setStatus("listening");
               break;
 
@@ -321,6 +345,7 @@ export function useRealtimeVoice({
             case "error":
               if (msg.error?.message?.includes("cancellation")) break;
               if (msg.error?.message?.includes("no active response")) break;
+              if (msg.error?.message?.includes("active response")) break;
               setError(msg.error?.message || "Realtime API error");
               break;
           }
@@ -398,7 +423,7 @@ export function useRealtimeVoice({
         disconnect();
       }
     }
-  }, [sessionId, topic, disconnect]);
+  }, [sessionId, disconnect]);
 
   // Cleanup on unmount
   useEffect(() => {
