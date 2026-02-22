@@ -11,7 +11,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("subjects")
-    .select("*, lectures(count), flashcard_decks(count), practice_exams(count)")
+    .select("*, lectures(count), flashcard_decks(count), practice_exams(count), documents(count)")
     .order("created_at", { ascending: false });
 
   if (error)
@@ -27,6 +27,7 @@ export async function GET() {
     lecture_count: s.lectures?.[0]?.count ?? 0,
     deck_count: s.flashcard_decks?.[0]?.count ?? 0,
     exam_count: s.practice_exams?.[0]?.count ?? 0,
+    document_count: s.documents?.[0]?.count ?? 0,
   }));
 
   return NextResponse.json(subjects);

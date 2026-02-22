@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mic, BookOpen, ClipboardCheck, Trash2, ChevronRight, Pencil, GripVertical } from "lucide-react";
+import { Mic, BookOpen, ClipboardCheck, FileText, Trash2, ChevronRight, Pencil, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Subject } from "@/types/study";
 
@@ -85,7 +85,8 @@ export default function SubjectCard({
   const lectureCount = subject.lecture_count ?? 0;
   const deckCount = subject.deck_count ?? 0;
   const examCount = subject.exam_count ?? 0;
-  const totalItems = lectureCount + deckCount + examCount;
+  const documentCount = subject.document_count ?? 0;
+  const totalItems = lectureCount + deckCount + examCount + documentCount;
 
   return (
     <motion.div
@@ -152,6 +153,10 @@ export default function SubjectCard({
           <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg ${colors.icon}`}>
             <ClipboardCheck className="h-3 w-3" />
             <span className="font-medium">{examCount}</span>
+          </div>
+          <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg ${colors.icon}`}>
+            <FileText className="h-3 w-3" />
+            <span className="font-medium">{documentCount}</span>
           </div>
           <div className="flex-1" />
           <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground group-hover:translate-x-0.5 transition-all" />

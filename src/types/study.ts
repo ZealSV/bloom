@@ -10,6 +10,7 @@ export interface Subject {
   lecture_count?: number;
   deck_count?: number;
   exam_count?: number;
+  document_count?: number;
 }
 
 // ---- Lecture types ----
