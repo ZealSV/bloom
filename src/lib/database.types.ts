@@ -201,6 +201,21 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_onboarding: {
+        Row: {
+          user_id: string;
+          onboarding_completed: boolean;
+        };
+        Insert: {
+          user_id: string;
+          onboarding_completed?: boolean;
+        };
+        Update: {
+          user_id?: string;
+          onboarding_completed?: boolean;
+        };
+        Relationships: [];
+      };
       lectures: {
         Row: {
           id: string;
