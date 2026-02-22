@@ -73,7 +73,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             {isLoggedIn ? (
               <Button size="sm" className="text-xs h-8" asChild>
-                <Link href="/app">Enter<ArrowRight className="ml-1.5 h-3 w-3" /></Link>
+                <Link href="/app">Enter <ArrowRight className="h-3 w-3" /></Link>
               </Button>
             ) : (
               <>
@@ -109,7 +109,7 @@ export default function LandingPage() {
                 <Button size="lg" className="h-11 px-6 text-sm" asChild>
                   <Link href={isLoggedIn ? "/app" : "/auth/signup"}>
                     {isLoggedIn ? "Enter" : "Start teaching"}
-                    <ArrowRight className="ml-2 h-4 w-4" />
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </Button>
                 <Button size="lg" variant="outline" className="h-11 px-6 text-sm" asChild>
@@ -177,13 +177,13 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-12 py-20 sm:py-32">
           <motion.div className="flex flex-col sm:flex-row items-center justify-center gap-8" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={gentle}>
             <Image src="/bloom-curious.png" alt="Bloom curious" width={250} height={250} className="shrink-0" />
-            <div className="text-center sm:text-left">
+            <div className="text-center flex flex-col items-center">
               <h2 className="font-outfit text-2xl sm:text-4xl font-bold text-foreground tracking-tight mb-4">Ready to teach?</h2>
-              <p className="text-muted-foreground mb-8 max-w-sm ml-auto">Discover what you truly know. Start your first session.</p>
+              <p className="text-muted-foreground mb-8 max-w-sm">Discover what you truly know. Start your first session.</p>
               <Button size="lg" className="h-11 px-8 text-sm" asChild>
                 <Link href={isLoggedIn ? "/app" : "/auth/signup"}>
                   {isLoggedIn ? "Enter" : "Get started"}
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  <ArrowRight className="h-3.5 w-3.5" />
                 </Link>
               </Button>
             </div>
@@ -209,17 +209,17 @@ export default function LandingPage() {
 function StickyHowItWorks() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start start", "end end"] });
-  const smoothProgress = useSpring(scrollYProgress, { stiffness: 60, damping: 25, restDelta: 0.001 });
+  const smoothProgress = useSpring(scrollYProgress, { stiffness: 120, damping: 28, restDelta: 0.001 });
 
-  const topicOpacity = useTransform(smoothProgress, [0, 0.3, 0.45], [1, 1, 0]);
-  const chatOpacity = useTransform(smoothProgress, [0.25, 0.45, 0.65, 0.8], [0, 1, 1, 0]);
-  const gardenOpacity = useTransform(smoothProgress, [0.65, 0.8, 1], [0, 1, 1]);
+  const topicOpacity = useTransform(smoothProgress, [0, 0.28, 0.35], [1, 1, 0]);
+  const chatOpacity = useTransform(smoothProgress, [0.28, 0.35, 0.62, 0.69], [0, 1, 1, 0]);
+  const gardenOpacity = useTransform(smoothProgress, [0.62, 0.69, 1], [0, 1, 1]);
 
-  const topicX = useTransform(smoothProgress, [0.3, 0.45], [0, -20]);
-  const chatX = useTransform(smoothProgress, [0.25, 0.45, 0.65, 0.8], [20, 0, 0, -20]);
-  const gardenX = useTransform(smoothProgress, [0.65, 0.8], [20, 0]);
+  const topicX = useTransform(smoothProgress, [0.28, 0.35], [0, -20]);
+  const chatX = useTransform(smoothProgress, [0.28, 0.35, 0.62, 0.69], [20, 0, 0, -20]);
+  const gardenX = useTransform(smoothProgress, [0.62, 0.69], [20, 0]);
 
-  const stageScale = useTransform(smoothProgress, [0, 0.4, 0.7, 1], [1, 0.98, 0.98, 1]);
+  const stageScale = useTransform(smoothProgress, [0, 0.35, 0.69, 1], [1, 0.98, 0.98, 1]);
 
   const steps = [
     { num: "01", title: "Choose a topic", desc: "Pick anything — biology, algorithms, history. Bloom adapts to any subject and complexity level. Just tell it what you want to teach.", bloomImg: "/bloom-zen.png" },
