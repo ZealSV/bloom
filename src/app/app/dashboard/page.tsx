@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Sprout, BarChart3, GitFork } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import KnowledgeGarden from "@/components/KnowledgeGarden";
 import MasteryDashboard from "@/components/MasteryDashboard";
@@ -167,9 +168,25 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-sm text-muted-foreground">
-          Loading dashboard...
+      <div className="min-h-screen bg-background">
+        <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center px-6 sticky top-0 z-10">
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-8 w-8 rounded-md" />
+            <div className="h-5 w-px bg-border" />
+            <Skeleton className="h-5 w-28" />
+            <div className="h-5 w-px bg-border" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+        </header>
+        <div className="max-w-5xl mx-auto px-6 py-8">
+          <Skeleton className="h-9 w-72 mb-6 rounded-xl" />
+          <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+            <div className="flex items-center justify-between mb-2">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-3 w-16" />
+            </div>
+            <Skeleton className="h-44 w-full rounded-xl" />
+          </div>
         </div>
       </div>
     );
