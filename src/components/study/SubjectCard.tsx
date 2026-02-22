@@ -7,56 +7,56 @@ import type { Subject } from "@/types/study";
 
 const colorMap: Record<string, { bg: string; accent: string; glow: string; icon: string; border: string }> = {
   red: {
-    bg: "from-red-500/10 to-red-500/5",
+    bg: "bg-red-500/10",
     accent: "bg-red-500",
     glow: "bg-red-500/20",
     icon: "text-red-500 bg-red-500/10",
     border: "border-red-500/20 hover:border-red-500/40",
   },
   orange: {
-    bg: "from-orange-500/10 to-orange-500/5",
+    bg: "bg-orange-500/10",
     accent: "bg-orange-500",
     glow: "bg-orange-500/20",
     icon: "text-orange-500 bg-orange-500/10",
     border: "border-orange-500/20 hover:border-orange-500/40",
   },
   yellow: {
-    bg: "from-yellow-500/10 to-yellow-500/5",
+    bg: "bg-yellow-500/10",
     accent: "bg-yellow-500",
     glow: "bg-yellow-500/20",
     icon: "text-yellow-500 bg-yellow-500/10",
     border: "border-yellow-500/20 hover:border-yellow-500/40",
   },
   green: {
-    bg: "from-emerald-500/10 to-emerald-500/5",
+    bg: "bg-emerald-500/10",
     accent: "bg-emerald-500",
     glow: "bg-emerald-500/20",
     icon: "text-emerald-500 bg-emerald-500/10",
     border: "border-emerald-500/20 hover:border-emerald-500/40",
   },
   blue: {
-    bg: "from-blue-500/10 to-blue-500/5",
+    bg: "bg-blue-500/10",
     accent: "bg-blue-500",
     glow: "bg-blue-500/20",
     icon: "text-blue-500 bg-blue-500/10",
     border: "border-blue-500/20 hover:border-blue-500/40",
   },
   purple: {
-    bg: "from-purple-500/10 to-purple-500/5",
+    bg: "bg-purple-500/10",
     accent: "bg-purple-500",
     glow: "bg-purple-500/20",
     icon: "text-purple-500 bg-purple-500/10",
     border: "border-purple-500/20 hover:border-purple-500/40",
   },
   pink: {
-    bg: "from-pink-500/10 to-pink-500/5",
+    bg: "bg-pink-500/10",
     accent: "bg-pink-500",
     glow: "bg-pink-500/20",
     icon: "text-pink-500 bg-pink-500/10",
     border: "border-pink-500/20 hover:border-pink-500/40",
   },
   cyan: {
-    bg: "from-cyan-500/10 to-cyan-500/5",
+    bg: "bg-cyan-500/10",
     accent: "bg-cyan-500",
     glow: "bg-cyan-500/20",
     icon: "text-cyan-500 bg-cyan-500/10",
@@ -89,13 +89,10 @@ export default function SubjectCard({
 
   return (
     <motion.div
-      className={`group relative rounded-2xl border bg-gradient-to-br ${colors.bg} ${colors.border} cursor-pointer transition-all duration-200 overflow-hidden`}
+      className={`group relative rounded-2xl border ${colors.bg} ${colors.border} cursor-pointer transition-colors duration-200 shadow-none`}
       onClick={onClick}
-      whileHover={{ y: -2 }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
     >
-      {/* Subtle glow orb in corner */}
-      <div className={`absolute -top-8 -right-8 w-24 h-24 rounded-full ${colors.glow} blur-2xl opacity-60 group-hover:opacity-100 transition-opacity`} />
+      {/* Solid background only (no glow) */}
 
       <div className="relative p-5">
         {/* Top row: drag handle + color dot + actions */}
