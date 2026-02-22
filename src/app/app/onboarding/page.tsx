@@ -198,10 +198,6 @@ export default function OnboardingPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, ease: "easeOut" }}
       >
-        {step !== "intro" && (
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-70" />
-        )}
-
         <AnimatePresence mode="wait">
           {step === "intro" ? (
             <motion.div

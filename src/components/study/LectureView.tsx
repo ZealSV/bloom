@@ -6,7 +6,7 @@ import {
   ArrowLeft,
   FileText,
   ScrollText,
-  Sparkles,
+  Flower,
   Loader2,
   BookOpen,
   ClipboardCheck,
@@ -196,7 +196,7 @@ export default function LectureView({
               {!lecture.summary && lecture.status === "ready" && (
                 <div className="mb-4 flex items-center justify-between rounded-lg bg-primary/5 border border-primary/20 p-3">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-primary" />
+                    <Flower className="h-4 w-4 text-primary" />
                     <span className="text-sm text-foreground">
                       Generate AI-powered structured notes
                     </span>

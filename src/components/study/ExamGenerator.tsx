@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ClipboardCheck, Loader2, Sparkles } from "lucide-react";
+import { ClipboardCheck, Flower, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SourceSelector from "./SourceSelector";
 import type { SourceType } from "@/types/study";
@@ -51,7 +51,7 @@ export default function ExamGenerator({ onGenerated, subjectId }: ExamGeneratorP
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 mb-1">
-        <Sparkles className="h-4 w-4 text-primary" />
+        <Flower className="h-4 w-4 text-primary" />
         <h3 className="text-sm font-medium text-foreground">
           Generate Practice Exam
         </h3>

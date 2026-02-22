@@ -269,13 +269,20 @@ function ChatVisual() {
       <div className="bg-muted/30 p-5 rounded-[1.5rem] rounded-tr-none ml-auto border border-border/20 shadow-sm backdrop-blur-sm">
         <p className="text-sm text-foreground/70 leading-relaxed italic">"So, the particles stay connected even across galaxies?"</p>
       </div>
-      <motion.div animate={{ scale: [1, 1.02, 1] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="bg-primary/10 p-5 rounded-[1.5rem] rounded-tl-none mr-auto border border-primary/20 relative shadow-md backdrop-blur-md">
-        <div className="absolute -top-7 left-0 flex items-center gap-2">
-          <Image src="/bloomlogo.png" alt="bloom" width={18} height={18} className="rounded-md shadow-sm" />
-          <span className="text-[10px] text-primary font-bold uppercase tracking-widest">Bloom</span>
-        </div>
-        <p className="text-sm text-primary font-medium leading-relaxed">Exactly. But if I measure one particle, what happens instantly to the other?</p>
-      </motion.div>
+      <div className="pt-3">
+        <motion.div
+          animate={{ scale: [1, 1.02, 1] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+          style={{ willChange: "transform" }}
+          className="origin-top-left bg-primary/10 p-5 rounded-[1.5rem] rounded-tl-none mr-auto border border-primary/20 relative shadow-md backdrop-blur-md"
+        >
+          <div className="absolute -top-7 left-0 flex items-center gap-2">
+            <Image src="/bloomlogo.png" alt="bloom" width={18} height={18} className="rounded-md shadow-sm" />
+            <span className="text-[10px] text-primary font-bold uppercase tracking-widest">Bloom</span>
+          </div>
+          <p className="text-sm text-primary font-medium leading-relaxed">Exactly. But if I measure one particle, what happens instantly to the other?</p>
+        </motion.div>
+      </div>
       <div className="bg-muted/10 p-4 rounded-[1.2rem] rounded-tr-none ml-auto max-w-[85%] border border-border/10 opacity-40 blur-[0.5px]">
         <p className="text-xs text-muted-foreground">"Thinking... is it related to the wave function collapse?"</p>
       </div>

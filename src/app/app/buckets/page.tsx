@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowLeft, Plus, FolderOpen, Sparkles, GripVertical } from "lucide-react";
+import { ArrowLeft, Plus, FolderOpen, Flower, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -349,7 +349,7 @@ export default function BucketsPage() {
               Create a subject to organize your lectures, flashcards, and practice exams all in one place.
             </p>
             <Button size="lg" onClick={() => setDialogOpen(true)}>
-              <Sparkles className="mr-2 h-4 w-4" />
+              <Flower className="mr-2 h-4 w-4" />
               Create Your First Subject
             </Button>
           </motion.div>
