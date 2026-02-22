@@ -156,13 +156,25 @@ export default function LiveVoiceMode({
               </span>
             )}
           </div>
-          <button
-            onClick={handleExit}
-            className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            title="End session"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <p className="hidden sm:block text-xs text-muted-foreground">
+              Say “bye” to end, or click Stop
+            </p>
+            <button
+              onClick={handleExit}
+              className="px-3 py-1.5 rounded-xl border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="End session"
+            >
+              Stop
+            </button>
+            <button
+              onClick={handleExit}
+              className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="End session"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Center: Orb */}

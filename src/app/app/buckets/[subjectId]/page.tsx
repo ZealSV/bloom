@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { use } from "react";
 import Link from "next/link";
@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   X,
   Presentation,
+  Layers,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ import SourceSelector from "@/components/study/SourceSelector";
 import DelelteConfirm from "@/components/delelteConfirm";
 import { useFlashcards } from "@/hooks/useFlashcards";
 import { useExam } from "@/hooks/useExam";
+import { createClient } from "@/lib/supabase-browser";
 import type {
   Lecture,
   FlashcardDeck as DeckType,
@@ -105,6 +107,9 @@ export default function SubjectDetailPage({
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const [documents, setDocuments] = useState<
+    { id: string; title: string; status: string; created_at: string }[]
+  >([]);
   const [slideDecks, setSlideDecks] = useState<SlideDeck[]>([]);
   const [selectedDeck, setSelectedDeck] = useState<SlideDeck | null>(null);
   const [slides, setSlides] = useState<Slide[]>([]);
@@ -132,6 +137,8 @@ export default function SubjectDetailPage({
     sourceType: SourceType;
     sourceIds: string[];
   }>({ sourceType: "all", sourceIds: [] });
+
+  const supabase = useMemo(() => createClient(), []);
 
   // Edit dialog state
   const [editDialog, setEditDialog] = useState<{
@@ -166,6 +173,25 @@ export default function SubjectDetailPage({
       setLectures(data);
     }
   }, [subjectId]);
+
+  const fetchDocuments = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("documents" as any)
+      .select("id, title, status, created_at, subject_id")
+      .eq("subject_id", subjectId)
+      .order("created_at", { ascending: false });
+
+    if (!error && Array.isArray(data)) {
+      setDocuments(
+        data.map((d: any) => ({
+          id: d.id,
+          title: d.title,
+          status: d.status,
+          created_at: d.created_at,
+        }))
+      );
+    }
+  }, [subjectId, supabase]);
 
   const fetchSlideDecks = useCallback(async () => {
     const res = await fetch(`/api/study/slides?subject_id=${subjectId}`);
@@ -348,6 +374,7 @@ export default function SubjectDetailPage({
 
       await Promise.all([
         fetchLectures(),
+        fetchDocuments(),
         fetchDecks(subjectId),
         fetchExams(subjectId),
         fetchSlideDecks(),
@@ -1283,7 +1310,7 @@ export default function SubjectDetailPage({
           {/* Files Tab */}
           <TabsContent value="files">
             <section className="rounded-2xl border border-border bg-card overflow-hidden">
-              <div className="p-5 space-y-4">
+              <div className="p-5 space-y-6">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-medium text-foreground">
@@ -1366,6 +1393,79 @@ export default function SubjectDetailPage({
                 {uploadError && (
                   <p className="text-sm text-destructive">{uploadError}</p>
                 )}
+
+                <div className="pt-2 border-t border-border/60">
+                  <div className="mb-3">
+                    <h3 className="text-sm font-medium text-foreground">
+                      Bucket Context
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Everything Bloom can use from this bucket.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="rounded-lg border border-border p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs text-muted-foreground">PDFs</p>
+                        <span className="text-[10px] text-muted-foreground/70">
+                          {documents.length} file{documents.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      {documents.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          No PDFs uploaded yet.
+                        </p>
+                      ) : (
+                        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                          {documents.map((doc) => (
+                            <div
+                              key={doc.id}
+                              className="rounded-md border border-border/60 bg-muted/10 px-3 py-2"
+                            >
+                              <p className="text-xs font-medium text-foreground truncate">
+                                {doc.title}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {doc.status} · {new Date(doc.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="rounded-lg border border-border p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs text-muted-foreground">Lectures</p>
+                        <span className="text-[10px] text-muted-foreground/70">
+                          {lectures.length} lecture{lectures.length !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      {lectures.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          No lectures in this bucket yet.
+                        </p>
+                      ) : (
+                        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                          {lectures.map((lecture) => (
+                            <div
+                              key={lecture.id}
+                              className="rounded-md border border-border/60 bg-muted/10 px-3 py-2"
+                            >
+                              <p className="text-xs font-medium text-foreground truncate">
+                                {lecture.title}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground">
+                                {lecture.status} · {new Date(lecture.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
               </div>
             </section>

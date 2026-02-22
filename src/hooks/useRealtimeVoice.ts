@@ -68,6 +68,8 @@ export function useRealtimeVoice({
   const responseRequestedRef = useRef(false);
   const responseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastResponseAtRef = useRef(0);
+  const responseRequestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTranscriptAtRef = useRef<number>(0);
   const onByeRef = useRef(onBye);
 
   // Keep onBye ref current without re-creating callbacks
@@ -82,6 +84,10 @@ export function useRealtimeVoice({
     if (responseTimerRef.current) {
       clearTimeout(responseTimerRef.current);
       responseTimerRef.current = null;
+    }
+    if (responseRequestTimeoutRef.current) {
+      clearTimeout(responseRequestTimeoutRef.current);
+      responseRequestTimeoutRef.current = null;
     }
 
     // 1. Stop timer
@@ -273,11 +279,17 @@ export function useRealtimeVoice({
               dcRef.current.send(
                 JSON.stringify({
                   type: "response.create",
-                  response: { modalities: ["audio", "text"] },
-                  reason,
                 })
               );
               setStatus("thinking");
+              if (responseRequestTimeoutRef.current) {
+                clearTimeout(responseRequestTimeoutRef.current);
+              }
+              responseRequestTimeoutRef.current = setTimeout(() => {
+                if (!responseActiveRef.current) {
+                  responseRequestedRef.current = false;
+                }
+              }, 4000);
             }
           };
 
@@ -295,8 +307,12 @@ export function useRealtimeVoice({
               setStatus("thinking");
               if (responseTimerRef.current) clearTimeout(responseTimerRef.current);
               responseTimerRef.current = setTimeout(() => {
-                requestResponseOnce("vad_stopped_fallback");
-              }, 700);
+                const now = Date.now();
+                const lastTranscriptAt = lastTranscriptAtRef.current || 0;
+                if (now - lastTranscriptAt > 2000) {
+                  requestResponseOnce("vad_stopped_fallback");
+                }
+              }, 1200);
               break;
 
             // ── Bloom response transcript ──
@@ -329,6 +345,7 @@ export function useRealtimeVoice({
                 .replace(/\s+/g, " ");
               const now = Date.now();
               const last = lastStudentRef.current;
+              lastTranscriptAtRef.current = now;
 
               // Fuzzy dedup: skip if >80% similar to last message within 8s
               let isDuplicate = false;
@@ -357,7 +374,12 @@ export function useRealtimeVoice({
 
               // Check for "bye" / "goodbye" to end session
               if (/\b(bye|goodbye)\b/i.test(normalized) && onByeRef.current) {
-                setTimeout(() => onByeRef.current?.(), 500);
+                const wordCount = normalized.split(" ").filter(Boolean).length;
+                const isByeOnly = /^(bye|goodbye)$/.test(normalized);
+                const isByeAtEnd = /(bye|goodbye)$/.test(normalized);
+                if (isByeOnly || (isByeAtEnd && wordCount <= 4)) {
+                  setTimeout(() => onByeRef.current?.(), 500);
+                }
               }
 
               if (responseTimerRef.current) {
@@ -372,12 +394,17 @@ export function useRealtimeVoice({
             case "response.created":
               responseActiveRef.current = true;
               responseRequestedRef.current = false;
+              if (responseRequestTimeoutRef.current) {
+                clearTimeout(responseRequestTimeoutRef.current);
+                responseRequestTimeoutRef.current = null;
+              }
               setStatus("speaking");
               break;
 
             case "response.done":
               responseActiveRef.current = false;
               setStatus("listening");
+              lastResponseAtRef.current = Date.now();
               break;
 
             // ── Errors ──
@@ -386,6 +413,10 @@ export function useRealtimeVoice({
               if (msg.error?.message?.includes("no active response")) break;
               if (msg.error?.message?.includes("active response")) break;
               responseRequestedRef.current = false;
+              if (responseRequestTimeoutRef.current) {
+                clearTimeout(responseRequestTimeoutRef.current);
+                responseRequestTimeoutRef.current = null;
+              }
               setError(msg.error?.message || "Realtime API error");
               break;
           }
