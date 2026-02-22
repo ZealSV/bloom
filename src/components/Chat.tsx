@@ -57,16 +57,6 @@ export default function Chat({
       )
       : 0;
 
-  const handleFinalTranscript = useCallback(
-    (transcript: string) => {
-      if (voiceMode && transcript.trim()) {
-        onSend(transcript.trim());
-        setInput("");
-      }
-    },
-    [voiceMode, onSend]
-  );
-
   const {
     isListening,
     isSupported,
@@ -74,7 +64,12 @@ export default function Chat({
     stopListening,
   } = useSpeechRecognition({
     onTranscript: (transcript) => setInput(transcript),
-    onFinalTranscript: handleFinalTranscript,
+    onFinalTranscript: (transcript) => {
+      if (voiceMode && transcript.trim()) {
+        setInput(transcript.trim());
+        inputRef.current?.focus();
+      }
+    },
   });
 
   const handleStartListening = useCallback(() => {

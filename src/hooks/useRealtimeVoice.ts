@@ -65,6 +65,9 @@ export function useRealtimeVoice({
   const lastStudentRef = useRef<{ text: string; at: number } | null>(null);
   const disconnectedRef = useRef(false);
   const responseActiveRef = useRef(false);
+  const responseRequestedRef = useRef(false);
+  const responseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastResponseAtRef = useRef(0);
   const onByeRef = useRef(onBye);
 
   // Keep onBye ref current without re-creating callbacks
@@ -74,6 +77,12 @@ export function useRealtimeVoice({
 
   const disconnect = useCallback(() => {
     disconnectedRef.current = true;
+    responseRequestedRef.current = false;
+    responseActiveRef.current = false;
+    if (responseTimerRef.current) {
+      clearTimeout(responseTimerRef.current);
+      responseTimerRef.current = null;
+    }
 
     // 1. Stop timer
     if (timerRef.current) {
@@ -232,7 +241,7 @@ export function useRealtimeVoice({
                     threshold: 0.5,
                     prefix_padding_ms: 300,
                     silence_duration_ms: 800,
-                    create_response: true,
+                    create_response: false,
                     interrupt_response: true,
                   },
                 },
@@ -254,17 +263,40 @@ export function useRealtimeVoice({
 
         try {
           const msg = JSON.parse(event.data);
+          const requestResponseOnce = (reason: string) => {
+            const now = Date.now();
+            if (responseActiveRef.current || responseRequestedRef.current) return;
+            if (now - lastResponseAtRef.current < 1500) return;
+            if (dcRef.current && dcRef.current.readyState === "open") {
+              responseRequestedRef.current = true;
+              lastResponseAtRef.current = now;
+              dcRef.current.send(
+                JSON.stringify({
+                  type: "response.create",
+                  response: { modalities: ["audio", "text"] },
+                  reason,
+                })
+              );
+              setStatus("thinking");
+            }
+          };
 
           switch (msg.type) {
             // ── VAD events ──
             case "input_audio_buffer.speech_started":
               setStatus("listening");
+              if (responseTimerRef.current) {
+                clearTimeout(responseTimerRef.current);
+                responseTimerRef.current = null;
+              }
               break;
 
             case "input_audio_buffer.speech_stopped":
               setStatus("thinking");
-              // VAD's create_response: true handles response triggering.
-              // Do NOT also send response.create — it causes double responses.
+              if (responseTimerRef.current) clearTimeout(responseTimerRef.current);
+              responseTimerRef.current = setTimeout(() => {
+                requestResponseOnce("vad_stopped_fallback");
+              }, 700);
               break;
 
             // ── Bloom response transcript ──
@@ -327,12 +359,19 @@ export function useRealtimeVoice({
               if (/\b(bye|goodbye)\b/i.test(normalized) && onByeRef.current) {
                 setTimeout(() => onByeRef.current?.(), 500);
               }
+
+              if (responseTimerRef.current) {
+                clearTimeout(responseTimerRef.current);
+                responseTimerRef.current = null;
+              }
+              requestResponseOnce("transcript_completed");
               break;
             }
 
             // ── Response lifecycle ──
             case "response.created":
               responseActiveRef.current = true;
+              responseRequestedRef.current = false;
               setStatus("speaking");
               break;
 
@@ -346,6 +385,7 @@ export function useRealtimeVoice({
               if (msg.error?.message?.includes("cancellation")) break;
               if (msg.error?.message?.includes("no active response")) break;
               if (msg.error?.message?.includes("active response")) break;
+              responseRequestedRef.current = false;
               setError(msg.error?.message || "Realtime API error");
               break;
           }
