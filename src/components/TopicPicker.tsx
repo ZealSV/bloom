@@ -38,17 +38,6 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
   return (
     <div className="flex-1 flex items-center justify-center p-6 relative">
       <motion.div
-        className="absolute inset-0 pointer-events-none"
-        animate={{
-          background: [
-            "radial-gradient(600px at center, rgba(16,185,129,0.05) 0%, transparent 80%)",
-            "radial-gradient(600px at center, rgba(16,185,129,0.08) 0%, transparent 80%)",
-            "radial-gradient(600px at center, rgba(16,185,129,0.05) 0%, transparent 80%)",
-          ],
-        }}
-        transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
         className="max-w-2xl w-full"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -80,11 +69,6 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="relative group">
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 rounded-lg blur-lg opacity-0 group-focus-within:opacity-100 transition-opacity duration-300"
-              animate={{ opacity: [0.3, 0.6, 0.3] }}
-              transition={{ duration: 3, repeat: Infinity }}
-            />
             <div className="relative flex items-center">
               <Input
                 type="text"
@@ -106,7 +90,7 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
             <Button
               type="submit"
               disabled={!topic.trim() || loading}
-              className="w-full h-12 bg-gradient-to-b from-emerald-500 to-emerald-700 hover:from-emerald-600 hover:to-emerald-800 text-white font-semibold shadow-md hover:shadow-xl transition-all duration-200 active:shadow-md border border-emerald-400/20"
+              className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md hover:shadow-xl transition-all duration-200 active:shadow-md border border-emerald-400/20"
             >
               {loading ? "Starting session..." : "Start Teaching"}
               {!loading && <ArrowRight className="ml-2 h-4 w-4" />}
