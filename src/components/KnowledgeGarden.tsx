@@ -6,8 +6,14 @@ import { Sprout } from "lucide-react";
 import type { Concept } from "@/hooks/useSession";
 import { getFlowerStage, getFlowerColors } from "@/utils/gardenHelpers";
 
-interface KnowledgeGardenProps {
+interface GardenGroup {
+  topic: string;
+  mastery_score: number;
   concepts: Concept[];
+}
+
+interface KnowledgeGardenProps {
+  groups: GardenGroup[];
   subjectArea: string | null;
 }
 
@@ -16,11 +22,13 @@ function Flower({
   x,
   colors,
   index,
+  subtopicCount,
 }: {
-  concept: Concept;
+  concept: { name: string; mastery_score: number };
   x: number;
   colors: { petal: string; center: string; stem: string };
   index: number;
+  subtopicCount: number;
 }) {
   const [hovered, setHovered] = useState(false);
   const stage = getFlowerStage(concept.mastery_score);
@@ -305,6 +313,70 @@ function Flower({
         </g>
       )}
 
+      {/* Subtopic leaves */}
+      {subtopicCount > 0 && (
+        <g>
+          {Array.from({ length: Math.min(subtopicCount, 8) }).map((_, i) => {
+            const count = Math.min(subtopicCount, 8);
+            const offset = (i - (count - 1) / 2) * 16;
+            const tier = i % 3;
+            const baseY =
+              stage === "full"
+                ? groundY - 40
+                : stage === "blooming"
+                  ? groundY - 36
+                  : stage === "growing"
+                    ? groundY - 30
+                    : stage === "sprout"
+                      ? groundY - 22
+                      : groundY - 16;
+            const leafY = baseY + tier * 10;
+            const rotation = offset < 0 ? -30 - tier * 6 : 30 + tier * 6;
+            return (
+              <motion.ellipse
+                key={`leaf-${i}`}
+                cx={x + offset}
+                cy={leafY}
+                rx={7}
+                ry={3.2}
+                fill={colors.stem}
+                opacity={0.7}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2 + i * 0.05 }}
+                style={{
+                  transformOrigin: `${x + offset}px ${leafY}px`,
+                  rotate: rotation,
+                }}
+              />
+            );
+          })}
+          {subtopicCount > 8 && (
+            <text
+              x={x}
+              y={
+                stage === "full"
+                  ? groundY - 58
+                  : stage === "blooming"
+                    ? groundY - 50
+                    : stage === "growing"
+                      ? groundY - 44
+                      : stage === "sprout"
+                        ? groundY - 32
+                        : groundY - 26
+              }
+              textAnchor="middle"
+              fill="rgba(255,255,255,0.7)"
+              fontSize={8}
+              fontWeight="600"
+              fontFamily="Inter, sans-serif"
+            >
+              +{subtopicCount - 8}
+            </text>
+          )}
+        </g>
+      )}
+
       {/* Tooltip */}
       {hovered && (
         <motion.g initial={{ opacity: 0, y: 5, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}>
@@ -347,7 +419,7 @@ function Flower({
             fontWeight="600"
             fontFamily="Inter, sans-serif"
           >
-            {Math.round(concept.mastery_score)}% PROFICIENCY
+            {Math.round(concept.mastery_score)}% PROFICIENCY · {subtopicCount} subtopic{subtopicCount !== 1 ? "s" : ""}
           </text>
         </motion.g>
       )}
@@ -356,7 +428,7 @@ function Flower({
 }
 
 export default function KnowledgeGarden({
-  concepts,
+  groups,
   subjectArea,
 }: KnowledgeGardenProps) {
   const [mounted, setMounted] = useState(false);
@@ -368,10 +440,10 @@ export default function KnowledgeGarden({
   const colors = getFlowerColors(subjectArea);
 
   // Position flowers evenly
-  const spacing = Math.min(70, (width - 60) / Math.max(concepts.length, 1));
+  const spacing = Math.min(90, (width - 60) / Math.max(groups.length, 1));
   const startX =
-    concepts.length > 0
-      ? (width - spacing * (concepts.length - 1)) / 2
+    groups.length > 0
+      ? (width - spacing * (groups.length - 1)) / 2
       : width / 2;
 
   return (
@@ -381,12 +453,12 @@ export default function KnowledgeGarden({
           Knowledge Garden
         </h3>
         <span className="text-[10px] text-muted-foreground/60">
-          {concepts.length} concept{concepts.length !== 1 ? "s" : ""}
+          {groups.length} topic{groups.length !== 1 ? "s" : ""}
         </span>
       </div>
 
       <div className="rounded-xl bg-gradient-to-b from-card/50 to-card border border-border overflow-hidden">
-        {concepts.length === 0 ? (
+        {groups.length === 0 ? (
           <div className="flex items-center justify-center h-40">
             <div className="text-center">
               <Sprout className="h-6 w-6 text-muted-foreground/30 mx-auto" />
@@ -497,13 +569,14 @@ export default function KnowledgeGarden({
             })}
 
             {/* Flowers */}
-            {concepts.map((concept, i) => (
+            {groups.map((group, i) => (
               <Flower
-                key={concept.id}
-                concept={concept}
+                key={`${group.topic}-${i}`}
+                concept={{ name: group.topic, mastery_score: group.mastery_score }}
                 x={startX + i * spacing}
                 colors={colors}
                 index={i}
+                subtopicCount={group.concepts.length}
               />
             ))}
           </svg>
