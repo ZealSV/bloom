@@ -45,7 +45,13 @@ const ONBOARDING_BUCKET_COLORS = [
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState<
-    "intro" | "profile" | "canvas" | "categories" | "confirm"
+    | "intro"
+    | "profile"
+    | "canvas"
+    | "canvas-courses"
+    | "canvas-extra"
+    | "categories"
+    | "confirm"
   >("intro");
   const [userType, setUserType] = useState<UserType | null>(null);
   const [canvasConnected, setCanvasConnected] = useState(false);
@@ -53,16 +59,37 @@ export default function OnboardingPage() {
   const [categoryInput, setCategoryInput] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
   const hasCategories = categories.length > 0;
+  const [selectedCourseIds, setSelectedCourseIds] = useState<Set<number>>(
+    new Set()
+  );
   const [setupRunId, setSetupRunId] = useState(0);
   const [setupError, setSetupError] = useState<string | null>(null);
   const [setupMessage, setSetupMessage] = useState(
     "Setting up your workspace...",
   );
   const setupStartedRef = useRef(false);
+  const canvasCoursesLoadedRef = useRef(false);
   const categoryLabelPlural = userType === "student" ? "Classes" : "Categories";
   const categoryLabelPluralLower =
     userType === "student" ? "classes" : "categories";
   const categoryLabelSingular = userType === "student" ? "class" : "category";
+
+  const toggleCourse = (id: number) => {
+    setSelectedCourseIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllCourses = () => {
+    setSelectedCourseIds(new Set(canvas.courses.map((c) => c.id)));
+  };
+
+  const selectNoCourses = () => {
+    setSelectedCourseIds(new Set());
+  };
 
   const addCategory = () => {
     const value = categoryInput.trim();
@@ -143,16 +170,6 @@ export default function OnboardingPage() {
         // Continue to app even if setup partially fails.
       }
 
-      // If Canvas credentials were provided, sync courses + files
-      if (canvasConnected) {
-        try {
-          setSetupMessage("Syncing your Canvas courses...");
-          await fetch("/api/canvas/sync", { method: "POST" });
-        } catch {
-          // Non-blocking — user can re-sync later from settings
-        }
-      }
-
       try {
         setSetupMessage("Finalizing your onboarding...");
         const onboardingRes = await fetch("/api/onboarding", {
@@ -189,6 +206,18 @@ export default function OnboardingPage() {
       cancelled = true;
     };
   }, [step, router, userType, categories, canvasConnected, setupRunId]);
+
+  useEffect(() => {
+    if (step !== "canvas-courses") return;
+    if (canvasCoursesLoadedRef.current) return;
+    canvasCoursesLoadedRef.current = true;
+    canvas.fetchCourses().then((fetched) => {
+      const unsynced = fetched
+        .filter((c) => !c.alreadySynced)
+        .map((c) => c.id);
+      setSelectedCourseIds(new Set(unsynced));
+    });
+  }, [step, canvas.fetchCourses]);
 
   return (
     <main className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -415,11 +444,213 @@ export default function OnboardingPage() {
                 <Button
                   variant={canvasConnected ? "default" : "outline"}
                   className="h-10 px-5"
-                  onClick={() => setStep("categories")}
+                  onClick={() =>
+                    setStep(canvasConnected ? "canvas-courses" : "categories")
+                  }
                 >
                   {canvasConnected ? "Continue" : "Skip"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
+              </div>
+            </motion.div>
+          ) : step === "canvas-courses" ? (
+            <motion.div
+              key="canvas-courses"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+              className="relative"
+            >
+              <motion.div
+                className="mx-auto mb-5 h-10 w-10 rounded-xl border border-primary/30 bg-primary/10 p-2"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.25 }}
+              >
+                <Image
+                  src="/bloomlogo.png"
+                  alt="bloom logo"
+                  width={24}
+                  height={24}
+                  className="rounded-md"
+                />
+              </motion.div>
+
+              <h1 className="font-outfit text-2xl font-semibold text-foreground">
+                Choose Canvas {categoryLabelPluralLower}
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Select which {categoryLabelPluralLower} to sync into Bloom.
+              </p>
+
+              <div className="mt-6 rounded-xl border border-border/70 bg-muted/20 p-3 text-left space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Canvas courses
+                  </p>
+                  <div className="flex gap-2 text-[11px] text-muted-foreground">
+                    <button
+                      onClick={selectAllCourses}
+                      className="text-primary hover:underline"
+                      type="button"
+                    >
+                      All
+                    </button>
+                    <span>/</span>
+                    <button
+                      onClick={selectNoCourses}
+                      className="text-primary hover:underline"
+                      type="button"
+                    >
+                      None
+                    </button>
+                  </div>
+                </div>
+
+                {canvas.loadingCourses ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Loading courses...
+                  </div>
+                ) : canvas.courses.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">
+                    No courses found. You can continue and sync later.
+                  </div>
+                ) : (
+                  <div className="max-h-64 overflow-y-auto space-y-1">
+                    {canvas.courses.map((course) => (
+                      <label
+                        key={course.id}
+                        className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-muted/50 cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedCourseIds.has(course.id)}
+                          onChange={() => toggleCourse(course.id)}
+                          className="rounded border-border text-primary focus:ring-primary/20 h-4 w-4"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm text-foreground truncate">
+                            {course.name}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {course.course_code}
+                            {course.term && ` · ${course.term}`}
+                            {course.alreadySynced && (
+                              <span className="ml-1 text-emerald-600">
+                                · synced
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {canvas.error && (
+                <p className="mt-3 text-xs text-destructive">{canvas.error}</p>
+              )}
+
+              <div className="mt-6 flex items-center justify-center gap-2">
+                <Button
+                  variant="ghost"
+                  className="h-10 px-4"
+                  onClick={() => setStep("canvas")}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+                <Button
+                  variant="outline"
+                  className="h-10 px-5"
+                  onClick={() => setStep("canvas-extra")}
+                >
+                  Skip
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+                <Button
+                  className="h-10 px-5"
+                  disabled={canvas.syncing || selectedCourseIds.size === 0}
+                  onClick={async () => {
+                    await canvas.triggerSync(Array.from(selectedCourseIds));
+                    setStep("canvas-extra");
+                  }}
+                >
+                  {canvas.syncing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      Sync {selectedCourseIds.size}{" "}
+                      {categoryLabelSingular}
+                      {selectedCourseIds.size !== 1 ? "es" : ""}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </motion.div>
+          ) : step === "canvas-extra" ? (
+            <motion.div
+              key="canvas-extra"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+              className="relative"
+            >
+              <motion.div
+                className="mx-auto mb-5 h-10 w-10 rounded-xl border border-primary/30 bg-primary/10 p-2"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.25 }}
+              >
+                <Image
+                  src="/bloomlogo.png"
+                  alt="bloom logo"
+                  width={24}
+                  height={24}
+                  className="rounded-md"
+                />
+              </motion.div>
+
+              <h1 className="font-outfit text-2xl font-semibold text-foreground">
+                Add other classes?
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                You can add additional {categoryLabelPluralLower} now or skip for later.
+              </p>
+
+              <div className="mt-6 flex items-center justify-center gap-2">
+                <div className="w-full max-w-xs space-y-2">
+                  <Button
+                    className="h-10 w-full"
+                    onClick={() => setStep("categories")}
+                  >
+                    Yes, add more {categoryLabelPluralLower}
+                    <Plus className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-10 w-full"
+                    onClick={handleFinish}
+                  >
+                    No, continue
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="h-10 w-full"
+                    onClick={() => setStep("canvas")}
+                  >
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back
+                  </Button>
+                </div>
               </div>
             </motion.div>
           ) : step === "categories" ? (

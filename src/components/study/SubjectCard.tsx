@@ -90,12 +90,12 @@ export default function SubjectCard({
 
   return (
     <motion.div
-      className={`group relative rounded-2xl border ${colors.bg} ${colors.border} cursor-pointer transition-colors duration-200 shadow-none`}
+      className={`group relative rounded-2xl border ${colors.bg} ${colors.border} cursor-pointer transition-colors duration-200 shadow-none h-full min-h-[190px]`}
       onClick={onClick}
     >
       {/* Solid background only (no glow) */}
 
-      <div className="relative p-5">
+      <div className="relative p-5 h-full flex flex-col">
         {/* Top row: drag handle + color dot + actions */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -141,7 +141,7 @@ export default function SubjectCard({
         </p>
 
         {/* Stats row */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mt-auto">
           <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg ${colors.icon}`}>
             <Mic className="h-3 w-3" />
             <span className="font-medium">{lectureCount}</span>

@@ -57,6 +57,9 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
       try {
         const controller = new AbortController();
         controllerRef.current = controller;
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+        }, 10000);
 
         const response = await fetch("/api/tts", {
           method: "POST",
@@ -65,6 +68,8 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
           signal: controller.signal,
         });
 
+        clearTimeout(timeoutId);
+
         if (!response.ok) {
           setIsSpeaking(false);
           return;
@@ -72,6 +77,10 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
 
         const blob = await response.blob();
         if (controller.signal.aborted) {
+          setIsSpeaking(false);
+          return;
+        }
+        if (!blob || blob.size === 0) {
           setIsSpeaking(false);
           return;
         }

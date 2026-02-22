@@ -9,13 +9,34 @@ export async function GET() {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabase
-    .from("subjects")
-    .select("*, lectures(count), flashcard_decks(count), practice_exams(count), documents(count)")
-    .order("created_at", { ascending: false });
+  console.error("[subjects] Fetching subjects for user:", user.id);
+  let data: any[] | null = null;
+  let error: any | null = null;
 
-  if (error)
+  const baseQuery = "*, lectures(count), flashcard_decks(count), practice_exams(count)";
+  const withDocsQuery = `${baseQuery}, documents(count)`;
+
+  const first = await supabase
+    .from("subjects")
+    .select(withDocsQuery)
+    .order("created_at", { ascending: false });
+  data = first.data as any[] | null;
+  error = first.error;
+
+  if (error && error.code === "PGRST200") {
+    console.error("[subjects] Missing documents relation, retrying without it.");
+    const retry = await supabase
+      .from("subjects")
+      .select(baseQuery)
+      .order("created_at", { ascending: false });
+    data = retry.data as any[] | null;
+    error = retry.error;
+  }
+
+  if (error) {
+    console.error("[subjects] Fetch error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
   const subjects = (data || []).map((s: any) => ({
     id: s.id,

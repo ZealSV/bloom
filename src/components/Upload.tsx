@@ -106,23 +106,6 @@ export default function Upload({
         throw new Error("Upload succeeded but no documentId was returned.");
       }
 
-      const ingestResponse = await fetch("/api/ingest", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ documentId }),
-      });
-
-      const ingestResult = await readApiResponse(ingestResponse);
-
-      if (!ingestResponse.ok) {
-        throw new Error(
-          (ingestResult as { error?: string })?.error ||
-            `Ingest failed (${ingestResponse.status})`,
-        );
-      }
-
       setUploadSucceeded(true);
       onUploadComplete?.(file.name);
       closeTimerRef.current = setTimeout(() => {

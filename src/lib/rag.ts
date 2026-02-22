@@ -252,7 +252,8 @@ export async function retrieveRelevantChunks({
   const topRows = rows
     .slice()
     .sort((a, b) => (b.similarity || 0) - (a.similarity || 0))
-    .slice(0, matchCount);
+    .slice(0, matchCount)
+    .filter((row) => (row.similarity || 0) >= Math.max(matchThreshold, 0.25));
 
   const titleMap = await getDocumentTitleMap(
     supabase,
@@ -266,6 +267,10 @@ export async function retrieveRelevantChunks({
     snippet: row.content.slice(0, 220).trim(),
     score: Number((row.similarity || 0).toFixed(4)),
   }));
+
+  if (citations.length === 0) {
+    return { contextText: "", citations: [] };
+  }
 
   const contextText = topRows
     .map((row, i) => {

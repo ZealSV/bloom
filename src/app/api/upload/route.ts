@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { createClient } from "@/lib/supabase-server";
 import { userOwnsSession } from "@/lib/session-access";
+import { ingestDocument } from "@/lib/ingest-document";
 
 const MATERIALS_BUCKET = "learning materials";
 
@@ -68,6 +69,15 @@ export async function POST(req: NextRequest) {
     }
 
     const file = fileValue;
+    const isPdf =
+      file.type === "application/pdf" ||
+      file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      return NextResponse.json(
+        { error: `Unsupported file type: ${file.type || "unknown"}. Please upload a PDF.` },
+        { status: 400 }
+      );
+    }
     const userId = user.id;
     const title =
       typeof titleValue === "string" && titleValue.trim()
@@ -160,6 +170,17 @@ export async function POST(req: NextRequest) {
           { status: 500 }
         );
       }
+    }
+
+    try {
+      await ingestDocument(document.id, user.id);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to ingest document";
+      return NextResponse.json(
+        { error: `Upload succeeded but ingest failed: ${message}` },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({

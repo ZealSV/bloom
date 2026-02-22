@@ -63,6 +63,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  if (
+    stats?.documentCount > 0 &&
+    stats?.chunkCount === 0 &&
+    stats?.lectureCount === 0
+  ) {
+    console.error("[slides] Documents not indexed yet.");
+    return NextResponse.json(
+      { error: "Documents are uploaded but not indexed yet. Try re-ingesting the PDFs or wait for indexing to finish." },
+      { status: 400 }
+    );
+  }
+
   if (!context || context.length < 50) {
     console.error("[slides] Not enough context length:", context?.length || 0);
     return NextResponse.json(

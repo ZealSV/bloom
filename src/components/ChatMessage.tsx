@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 interface ChatMessageProps {
   role: "student" | "bloom";
@@ -23,6 +25,8 @@ export default function ChatMessage({
   citations,
 }: ChatMessageProps) {
   const isbloom = role === "bloom";
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const hasSources = !!citations && citations.length > 0;
 
   return (
     <motion.div
@@ -58,23 +62,36 @@ export default function ChatMessage({
             />
           )}
         </p>
-        {isbloom && citations && citations.length > 0 && !isStreaming && (
+        {isbloom && hasSources && !isStreaming && (
           <div className="mt-3 border-t border-border/70 pt-2.5 space-y-1.5">
-            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => setSourcesOpen((v) => !v)}
+              className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+            >
               Sources
-            </p>
-            {citations.map((citation, index) => (
-              <div key={`${citation.documentId}-${citation.chunkId}-${index}`} className="text-xs">
-                <p className="text-muted-foreground">
-                  {index + 1}. {citation.documentTitle}
-                  {Number.isFinite(citation.chunkId) ? ` (chunk ${citation.chunkId})` : ""}
-                  {" · "}score {citation.score.toFixed(2)}
-                </p>
-                <p className="text-foreground/80">
-                  {citation.snippet}
-                </p>
+              {sourcesOpen ? (
+                <ChevronUp className="h-3 w-3" />
+              ) : (
+                <ChevronDown className="h-3 w-3" />
+              )}
+            </button>
+            {sourcesOpen && (
+              <div className="space-y-1.5">
+                {citations.map((citation, index) => (
+                  <div key={`${citation.documentId}-${citation.chunkId}-${index}`} className="text-xs">
+                    <p className="text-muted-foreground">
+                      {index + 1}. {citation.documentTitle}
+                      {Number.isFinite(citation.chunkId) ? ` (chunk ${citation.chunkId})` : ""}
+                      {" · "}score {citation.score.toFixed(2)}
+                    </p>
+                    <p className="text-foreground/80">
+                      {citation.snippet}
+                    </p>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>

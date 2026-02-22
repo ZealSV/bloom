@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
     const context: string[] = [];
     let documentCount = 0;
     let lectureCount = 0;
+    let chunkCount = 0;
 
     // 1. Lecture transcripts
     if (sourceType === "all" || sourceType === "lecture") {
@@ -96,8 +97,12 @@ export async function POST(req: NextRequest) {
             .limit(15);
 
           if (chunks?.length) {
+            chunkCount += chunks.length;
             context.push(`\n--- Document: ${doc.title} ---`);
             context.push(chunks.map((c) => c.content).join(" "));
+          } else {
+            context.push(`\n--- Document: ${doc.title} ---`);
+            context.push("No extracted text found yet for this document.");
           }
         }
       }
@@ -186,7 +191,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       context: context.join("\n"),
-      stats: { documentCount, lectureCount },
+      stats: { documentCount, lectureCount, chunkCount },
     });
   } catch (err) {
     console.error("Context aggregation error:", err);
