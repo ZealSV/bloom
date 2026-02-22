@@ -38,6 +38,7 @@ import FlashcardDeck from "@/components/study/FlashcardDeck";
 import ExamGenerator from "@/components/study/ExamGenerator";
 import ExamView from "@/components/study/ExamView";
 import SourceSelector from "@/components/study/SourceSelector";
+import DelelteConfirm from "@/components/delelteConfirm";
 import { useFlashcards } from "@/hooks/useFlashcards";
 import { useExam } from "@/hooks/useExam";
 import type {
@@ -121,6 +122,11 @@ export default function SubjectDetailPage({
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [deletingDeckId, setDeletingDeckId] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<{
+    type: "lecture" | "flashcard" | "exam" | "slide";
+    id: string;
+  } | null>(null);
   const [slideSources, setSlideSources] = useState<{
     sourceType: "all" | "lecture" | "document" | "session";
     sourceIds: string[];
@@ -486,6 +492,31 @@ export default function SubjectDetailPage({
     }
   };
 
+  const requestDelete = (
+    type: "lecture" | "flashcard" | "exam" | "slide",
+    id: string
+  ) => {
+    setPendingDelete({ type, id });
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+
+    if (pendingDelete.type === "lecture") {
+      await deleteLecture(pendingDelete.id);
+    } else if (pendingDelete.type === "flashcard") {
+      await deleteDeck(pendingDelete.id);
+    } else if (pendingDelete.type === "exam") {
+      await deleteExam(pendingDelete.id);
+    } else if (pendingDelete.type === "slide") {
+      await handleDeleteDeck(pendingDelete.id);
+    }
+
+    setDeleteConfirmOpen(false);
+    setPendingDelete(null);
+  };
+
   if (loading || !subject) {
     return (
       <div className="min-h-screen bg-background">
@@ -672,7 +703,7 @@ export default function SubjectDetailPage({
                             key={lecture.id}
                             lecture={lecture}
                             onClick={() => handleViewLecture(lecture)}
-                            onDelete={() => deleteLecture(lecture.id)}
+                            onDelete={() => requestDelete("lecture", lecture.id)}
                             onEdit={() =>
                               setEditDialog({
                                 open: true,
@@ -795,7 +826,7 @@ export default function SubjectDetailPage({
                                 className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  deleteDeck(d.id);
+                                  requestDelete("flashcard", d.id);
                                 }}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -915,7 +946,7 @@ export default function SubjectDetailPage({
                                 className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  deleteExam(ex.id);
+                                  requestDelete("exam", ex.id);
                                 }}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -1089,7 +1120,7 @@ export default function SubjectDetailPage({
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-                                  onClick={() => handleDeleteDeck(deck.id)}
+                                  onClick={() => requestDelete("slide", deck.id)}
                                   disabled={deletingDeckId === deck.id}
                                   title="Delete deck"
                                 >
@@ -1340,6 +1371,15 @@ export default function SubjectDetailPage({
           </TabsContent>
         </Tabs>
       </div>
+
+      <DelelteConfirm
+        open={deleteConfirmOpen}
+        onOpenChange={(open) => {
+          setDeleteConfirmOpen(open);
+          if (!open) setPendingDelete(null);
+        }}
+        onYes={handleConfirmDelete}
+      />
     </div>
   );
 }

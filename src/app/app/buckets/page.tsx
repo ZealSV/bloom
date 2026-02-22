@@ -34,6 +34,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import SubjectCard from "@/components/study/SubjectCard";
+import DelelteConfirm from "@/components/delelteConfirm";
 import { useSubjects } from "@/hooks/useSubjects";
 import { createClient } from "@/lib/supabase-browser";
 import type { Subject } from "@/types/study";
@@ -125,6 +126,8 @@ export default function BucketsPage() {
   const [newName, setNewName] = useState("");
   const [selectedColor, setSelectedColor] = useState("blue");
   const [creating, setCreating] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [subjectToDelete, setSubjectToDelete] = useState<Subject | null>(null);
 
   const supabase = useMemo(() => createClient(), []);
   const { subjects, fetchSubjects, createSubject, deleteSubject, updateSubject, setSubjects } =
@@ -192,6 +195,18 @@ export default function BucketsPage() {
     },
     [subjects, setSubjects]
   );
+
+  const handleRequestDelete = (subject: Subject) => {
+    setSubjectToDelete(subject);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!subjectToDelete) return;
+    await deleteSubject(subjectToDelete.id);
+    setDeleteConfirmOpen(false);
+    setSubjectToDelete(null);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -364,7 +379,7 @@ export default function BucketsPage() {
                       key={subject.id}
                       subject={subject}
                       onClick={() => router.push(`/app/buckets/${subject.id}`)}
-                      onDelete={() => deleteSubject(subject.id)}
+                      onDelete={() => handleRequestDelete(subject)}
                       onEdit={() => handleEdit(subject)}
                     />
                   ))}
@@ -374,6 +389,15 @@ export default function BucketsPage() {
           </motion.div>
         )}
       </div>
+
+      <DelelteConfirm
+        open={deleteConfirmOpen}
+        onOpenChange={(open) => {
+          setDeleteConfirmOpen(open);
+          if (!open) setSubjectToDelete(null);
+        }}
+        onYes={handleConfirmDelete}
+      />
     </div>
   );
 }

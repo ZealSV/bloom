@@ -10,6 +10,7 @@ import SessionHistory from "@/components/SessionHistory";
 import TopicPicker, { type TeachingMode } from "@/components/TopicPicker";
 import Chat from "@/components/Chat";
 import LiveVoiceMode from "@/components/LiveVoiceMode";
+import DelelteConfirm from "@/components/delelteConfirm";
 import type { TranscriptMessage } from "@/hooks/useRealtimeVoice";
 import { createClient } from "@/lib/supabase-browser";
 
@@ -37,6 +38,8 @@ export default function AppPage() {
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<string | null>(null);
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const { speak, stop: stopSpeaking, isSpeaking } = useTextToSpeech();
@@ -182,6 +185,18 @@ export default function AppPage() {
     setShowPicker(false);
   };
 
+  const handleRequestDeleteSession = (id: string) => {
+    setSessionToDelete(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDeleteSession = async () => {
+    if (!sessionToDelete) return;
+    await deleteSession(sessionToDelete);
+    setDeleteConfirmOpen(false);
+    setSessionToDelete(null);
+  };
+
   const handleSendMessage = (content: string) => {
     sendMessage(content, messages);
   };
@@ -257,7 +272,7 @@ export default function AppPage() {
             sessions={sessions}
             currentSessionId={currentSession?.id || null}
             onSelect={handleSelectSession}
-            onDelete={deleteSession}
+            onDelete={handleRequestDeleteSession}
             onNew={handleNewSession}
           />
         }
@@ -273,6 +288,14 @@ export default function AppPage() {
           onExit={handleExitLiveMode}
         />
       )}
+      <DelelteConfirm
+        open={deleteConfirmOpen}
+        onOpenChange={(open) => {
+          setDeleteConfirmOpen(open);
+          if (!open) setSessionToDelete(null);
+        }}
+        onYes={handleConfirmDeleteSession}
+      />
     </>
   );
 }
