@@ -33,10 +33,15 @@ export async function POST(req: NextRequest) {
     const fileValue = formData.get("file");
     const titleValue = formData.get("title");
     const sessionIdValue = formData.get("sessionId");
+    const subjectIdValue = formData.get("subjectId");
 
     const sessionId =
       typeof sessionIdValue === "string" && sessionIdValue.trim()
         ? sessionIdValue.trim()
+        : null;
+    const subjectId =
+      typeof subjectIdValue === "string" && subjectIdValue.trim()
+        ? subjectIdValue.trim()
         : null;
 
     if (sessionId) {
@@ -68,6 +73,7 @@ export async function POST(req: NextRequest) {
         file_type: file.type,
         file_path: "",
         status: "uploaded",
+        ...(subjectId ? { subject_id: subjectId } : {}),
       })
       .select()
       .single();

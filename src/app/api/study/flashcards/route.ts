@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       "Content-Type": "application/json",
       cookie: req.headers.get("cookie") || "",
     },
-    body: JSON.stringify({ sourceType, sourceIds }),
+    body: JSON.stringify({ sourceType, sourceIds, subjectId }),
   });
 
   if (!ctxRes.ok) {
@@ -30,7 +30,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { context } = await ctxRes.json();
+  const { context, stats } = await ctxRes.json();
+
+  if (subjectId && stats?.documentCount === 0 && stats?.lectureCount === 0) {
+    return NextResponse.json(
+      { error: "This bucket has no uploads yet. Upload a PDF or lecture to generate flashcards." },
+      { status: 400 }
+    );
+  }
 
   if (!context || context.length < 50) {
     return NextResponse.json(

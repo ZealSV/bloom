@@ -6,6 +6,7 @@ import type { SourceType } from "@/types/study";
 interface AggregateRequest {
   sourceType: SourceType;
   sourceIds?: string[];
+  subjectId?: string;
 }
 
 export async function POST(req: NextRequest) {
@@ -16,9 +17,11 @@ export async function POST(req: NextRequest) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { sourceType, sourceIds } = (await req.json()) as AggregateRequest;
+  const { sourceType, sourceIds, subjectId } = (await req.json()) as AggregateRequest;
   const admin = getSupabaseAdmin();
   const context: string[] = [];
+  let documentCount = 0;
+  let lectureCount = 0;
 
   // 1. Lecture transcripts
   if (sourceType === "all" || sourceType === "lecture") {
@@ -28,12 +31,17 @@ export async function POST(req: NextRequest) {
       .eq("user_id", user.id)
       .eq("status", "ready");
 
+    if (subjectId) {
+      query = query.eq("subject_id", subjectId);
+    }
+
     if (sourceType === "lecture" && sourceIds?.length) {
       query = query.in("id", sourceIds);
     }
 
     const { data: lectures } = await query;
     if (lectures?.length) {
+      lectureCount = lectures.length;
       context.push("=== LECTURE TRANSCRIPTS ===");
       for (const l of lectures) {
         context.push(`\n--- Lecture: ${l.title} ---`);
@@ -70,12 +78,17 @@ export async function POST(req: NextRequest) {
       .eq("user_id", user.id)
       .eq("status", "ready");
 
+    if (subjectId) {
+      query = query.eq("subject_id", subjectId);
+    }
+
     if (sourceType === "document" && sourceIds?.length) {
       query = query.in("id", sourceIds);
     }
 
     const { data: documents } = await query;
     if (documents?.length) {
+      documentCount = documents.length;
       context.push("\n=== UPLOADED DOCUMENTS ===");
       for (const doc of documents) {
         const { data: chunks } = await admin
@@ -94,6 +107,9 @@ export async function POST(req: NextRequest) {
 
   // 3. Chat session history
   if (sourceType === "all" || sourceType === "session") {
+    if (subjectId) {
+      // Sessions are not bucket-scoped; skip when a subject is provided.
+    } else {
     let sessQuery = admin
       .from("sessions")
       .select("id, topic")
@@ -129,13 +145,13 @@ export async function POST(req: NextRequest) {
         }
       }
     }
+    }
   }
 
   // 4. Knowledge gaps (always included)
-  const { data: allSessions } = await admin
-    .from("sessions")
-    .select("id")
-    .eq("user_id", user.id);
+  const { data: allSessions } = subjectId
+    ? { data: [] as { id: string }[] }
+    : await admin.from("sessions").select("id").eq("user_id", user.id);
 
   if (allSessions?.length) {
     const sessionIds = allSessions.map((s) => s.id);
@@ -172,5 +188,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ context: context.join("\n") });
+  return NextResponse.json({
+    context: context.join("\n"),
+    stats: { documentCount, lectureCount },
+  });
 }

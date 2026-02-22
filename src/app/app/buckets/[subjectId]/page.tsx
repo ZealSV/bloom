@@ -206,6 +206,7 @@ export default function SubjectDetailPage({
       const formData = new FormData();
       formData.append("file", uploadFile);
       formData.append("title", uploadFile.name);
+      formData.append("subjectId", subjectId);
 
       const uploadResponse = await fetch("/api/upload", {
         method: "POST",
@@ -762,13 +763,29 @@ export default function SubjectDetailPage({
           <TabsContent value="files">
             <section className="rounded-2xl border border-border bg-card overflow-hidden">
               <div className="p-5 space-y-4">
-                <div>
-                  <h3 className="text-sm font-medium text-foreground">
-                    Upload File
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Add a PDF to your materials.
-                  </p>
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">
+                      Upload File
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Add a PDF to your materials.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleInlineUpload}
+                    disabled={!uploadFile || isUploadingFile || uploadSuccess}
+                    size="sm"
+                    className="shrink-0"
+                  >
+                    <FileUp className="mr-1.5 h-3.5 w-3.5" />
+                    {uploadSuccess
+                      ? "Done"
+                      : isUploadingFile
+                        ? "Uploading..."
+                        : "Upload PDF"}
+                  </Button>
                 </div>
 
                 {!uploadFile && (
@@ -829,19 +846,6 @@ export default function SubjectDetailPage({
                   <p className="text-sm text-destructive">{uploadError}</p>
                 )}
 
-                <div className="flex items-center justify-end">
-                  <Button
-                    type="button"
-                    onClick={handleInlineUpload}
-                    disabled={!uploadFile || isUploadingFile || uploadSuccess}
-                  >
-                    {uploadSuccess
-                      ? "Done"
-                      : isUploadingFile
-                        ? "Uploading..."
-                        : "Upload PDF"}
-                  </Button>
-                </div>
               </div>
             </section>
           </TabsContent>
