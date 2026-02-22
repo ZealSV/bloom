@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import {
   useRealtimeVoice,
+  stopAllStreams,
   type TranscriptMessage,
   type RealtimeStatus,
 } from "@/hooks/useRealtimeVoice";
@@ -97,19 +98,40 @@ export default function LiveVoiceMode({
   topic,
   onExit,
 }: LiveVoiceModeProps) {
+  // Ref indirection to break circular dependency:
+  // handleExit needs disconnect (from hook), hook needs onBye (handleExit)
+  const exitRef = useRef<() => void>();
+
   const { status, connect, disconnect, transcript, error, elapsedSeconds } =
-    useRealtimeVoice({ sessionId, topic });
+    useRealtimeVoice({
+      sessionId,
+      topic,
+      onBye: () => exitRef.current?.(),
+    });
+
+  // Keep transcript ref current so handleExit captures latest
+  const transcriptRef = useRef<TranscriptMessage[]>([]);
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
+
+  const handleExit = useCallback(() => {
+    disconnect();
+    // Nuclear cleanup — guarantees mic release regardless of ref state
+    stopAllStreams();
+    onExit(transcriptRef.current);
+  }, [disconnect, onExit]);
+
+  // Keep exitRef pointing to latest handleExit
+  useEffect(() => {
+    exitRef.current = handleExit;
+  }, [handleExit]);
 
   // Auto-connect on mount
   useEffect(() => {
     connect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const handleExit = useCallback(() => {
-    disconnect();
-    onExit(transcript);
-  }, [disconnect, onExit, transcript]);
 
   const animateKey = status === "idle" ? "idle" : status;
 

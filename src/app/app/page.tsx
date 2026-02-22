@@ -11,7 +11,7 @@ import TopicPicker, { type TeachingMode } from "@/components/TopicPicker";
 import Chat from "@/components/Chat";
 import LiveVoiceMode from "@/components/LiveVoiceMode";
 import DelelteConfirm from "@/components/delelteConfirm";
-import type { TranscriptMessage } from "@/hooks/useRealtimeVoice";
+import { stopAllStreams, type TranscriptMessage } from "@/hooks/useRealtimeVoice";
 import { createClient } from "@/lib/supabase-browser";
 
 export default function AppPage() {
@@ -204,6 +204,8 @@ export default function AppPage() {
   const handleExitLiveMode = useCallback(
     async (transcript: TranscriptMessage[]) => {
       setIsLiveMode(false);
+      // Guarantee mic release even if hook cleanup missed something
+      stopAllStreams();
 
       if (!currentSession || transcript.length === 0) return;
 
@@ -261,6 +263,7 @@ export default function AppPage() {
         onTtsEnabledChange={setTtsEnabled}
         isSpeaking={isSpeaking}
         onStopSpeaking={stopSpeaking}
+        onEnterLiveMode={() => setIsLiveMode(true)}
       />
     );
 

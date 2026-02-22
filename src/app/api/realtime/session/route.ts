@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { userOwnsSession } from "@/lib/session-access";
 import { retrieveRelevantChunks } from "@/lib/rag";
+import { buildVoiceInstructions } from "@/lib/realtime-prompts";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -38,8 +39,12 @@ export async function POST(req: NextRequest) {
     matchThreshold: 0.2,
   });
 
+  const instructions = buildVoiceInstructions(topic, retrieval.contextText) +
+    "\n\nIMPORTANT: Always respond in English.";
+
+  // GA Realtime API — create ephemeral client secret with full session config
   const response = await fetch(
-    "https://api.openai.com/v1/realtime/sessions",
+    "https://api.openai.com/v1/realtime/client_secrets",
     {
       method: "POST",
       headers: {
@@ -47,9 +52,28 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-realtime-preview-2024-12-17",
-        voice,
-        modalities: ["audio", "text"],
+        session: {
+          type: "realtime",
+          model: "gpt-realtime",
+          instructions,
+          audio: {
+            input: {
+              transcription: {
+                model: "gpt-4o-transcribe",
+                language: "en",
+              },
+              turn_detection: {
+                type: "server_vad",
+                threshold: 0.5,
+                prefix_padding_ms: 300,
+                silence_duration_ms: 800,
+                create_response: true,
+                interrupt_response: true,
+              },
+            },
+            output: { voice },
+          },
+        },
       }),
     }
   );
@@ -66,8 +90,8 @@ export async function POST(req: NextRequest) {
   const data = await response.json();
 
   return NextResponse.json({
-    clientSecret: data.client_secret?.value,
-    expiresAt: data.client_secret?.expires_at,
+    clientSecret: data.value,
+    expiresAt: data.expires_at,
     topic,
     referenceContext: retrieval.contextText,
   });

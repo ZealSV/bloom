@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Mic, MicOff, Volume2, VolumeX, FileImage } from "lucide-react";
+import { Send, Mic, MicOff, Volume2, VolumeX, FileImage, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ChatMessage from "./ChatMessage";
 import Upload from "@/components/Upload";
@@ -24,6 +24,7 @@ interface ChatProps {
   onTtsEnabledChange?: (enabled: boolean) => void;
   isSpeaking?: boolean;
   onStopSpeaking?: () => void;
+  onEnterLiveMode?: () => void;
 }
 
 export default function Chat({
@@ -40,6 +41,7 @@ export default function Chat({
   onTtsEnabledChange,
   isSpeaking = false,
   onStopSpeaking,
+  onEnterLiveMode,
 }: ChatProps) {
   const [input, setInput] = useState("");
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -125,7 +127,7 @@ export default function Chat({
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={`Explain ${topic.toLowerCase()} to bloom...`}
+              placeholder={`Explain ${(topic || "this topic").toLowerCase()} to bloom...`}
               className="flex-1 px-3 py-2 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none resize-none"
               rows={1}
               disabled={isStreaming}
@@ -174,7 +176,8 @@ export default function Chat({
             <Button
               type="button"
               size="icon"
-              className="h-9 w-9 rounded-xl shrink-0"
+              variant="ghost"
+              className="h-9 w-9 rounded-xl shrink-0 text-muted-foreground hover:text-foreground"
               title="Add file"
               onClick={() => setIsUploadOpen(true)}
             >
@@ -208,6 +211,15 @@ export default function Chat({
         {/* Minimal header */}
         <div className="px-4 py-3 flex items-center justify-end shrink-0">
           <div className="flex items-center gap-2">
+            {onEnterLiveMode && (
+              <button
+                onClick={onEnterLiveMode}
+                className="p-1.5 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
+                title="Live Voice"
+              >
+                <Radio className="h-4 w-4" />
+              </button>
+            )}
             <div className="flex items-center gap-1">
               <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                 Mic
@@ -307,6 +319,15 @@ export default function Chat({
                 {overallMastery}%
               </span>
             </div>
+            {onEnterLiveMode && (
+              <button
+                onClick={onEnterLiveMode}
+                className="p-1.5 rounded-lg transition-colors text-muted-foreground hover:text-foreground hover:bg-muted"
+                title="Live Voice"
+              >
+                <Radio className="h-4 w-4" />
+              </button>
+            )}
             <div className="flex items-center gap-1">
               <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
                 Mic
