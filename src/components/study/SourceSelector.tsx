@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { FileText, Mic, MessageSquare, CheckSquare, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase-browser";
 import type { SourceType } from "@/types/study";
 
 interface Source {
@@ -28,47 +27,25 @@ export default function SourceSelector({
   const [viewFilter, setViewFilter] = useState<"all" | "document" | "lecture">(
     "all"
   );
-  const supabase = createClient();
 
   useEffect(() => {
     async function loadSources() {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
+      const lectureUrl = subjectId
+        ? `/api/lectures?subject_id=${subjectId}`
+        : `/api/lectures`;
+      const docUrl = subjectId
+        ? `/api/documents?subject_id=${subjectId}`
+        : `/api/documents`;
 
-      let lecturesQuery = supabase
-        .from("lectures")
-        .select("id, title")
-        .order("created_at", { ascending: false });
-      if (subjectId) {
-        lecturesQuery = lecturesQuery.eq("subject_id", subjectId);
-      }
-
-      const documentsQuery = subjectId
-        ? supabase
-            .from("documents" as any)
-            .select("id, title, subject_id")
-            .eq("subject_id", subjectId)
-            .order("created_at", { ascending: false })
-        : supabase
-            .from("documents" as any)
-            .select("id, title, subject_id")
-            .order("created_at", { ascending: false });
-
-      const sessionsQuery = supabase
-        .from("sessions")
-        .select("id, topic")
-        .order("updated_at", { ascending: false })
-        .limit(10);
-
-      const [lecturesRes, documentsRes, sessionsRes] = await Promise.all([
-        lecturesQuery,
-        documentsQuery,
-        sessionsQuery,
+      const [lecturesRes, documentsRes] = await Promise.all([
+        fetch(lectureUrl),
+        fetch(docUrl),
       ]);
 
       const all: Source[] = [];
-      if (lecturesRes.data) {
-        const lectures = lecturesRes.data as unknown as { id: string; title: string }[];
+
+      if (lecturesRes.ok) {
+        const lectures: { id: string; title: string }[] = await lecturesRes.json();
         all.push(
           ...lectures.map((l) => ({
             id: l.id,
@@ -77,30 +54,17 @@ export default function SourceSelector({
           }))
         );
       }
-      if (documentsRes.data) {
-        const documents = documentsRes.data as unknown as {
-          id: string;
-          title: string;
-          subject_id?: string | null;
-        }[];
-        const scoped = subjectId
-          ? documents.filter((d) => d.subject_id === subjectId)
-          : documents;
+
+      if (documentsRes.ok) {
+        const documents: { id: string; title: string; status: string }[] =
+          await documentsRes.json();
+        // Only show documents that have been ingested (have chunks/context)
+        const ingested = documents.filter((d) => d.status === "ready");
         all.push(
-          ...scoped.map((d) => ({
+          ...ingested.map((d) => ({
             id: d.id,
             title: d.title,
             type: "document" as SourceType,
-          }))
-        );
-      }
-      if (!subjectId && sessionsRes.data) {
-        const sessions = sessionsRes.data as unknown as { id: string; topic: string }[];
-        all.push(
-          ...sessions.map((s) => ({
-            id: s.id,
-            title: s.topic,
-            type: "session" as SourceType,
           }))
         );
       }
@@ -110,7 +74,6 @@ export default function SourceSelector({
     }
 
     loadSources();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjectId]);
 
   const isFilesFilter = viewFilter === "document";

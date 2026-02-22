@@ -136,7 +136,7 @@ export async function syncCanvasContent(
         continue;
       }
 
-      // 4. For each file, download + upload + optionally ingest
+      // 4. For each file, download + upload + ingest PDFs
       for (const file of files) {
         try {
           // Dedup: skip only if a doc with this canvas_file_id was actually uploaded
