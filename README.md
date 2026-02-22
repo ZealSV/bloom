@@ -62,5 +62,3 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Mastery Dashboard** — Track concept scores and detected knowledge gaps
 - **Concept Graph** — D3 force-directed map of concept relationships
 - **Session History** — Resume past teaching sessions
-# bloom
-# bloom
