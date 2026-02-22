@@ -78,9 +78,8 @@ function Flower({
             fill={colors.stem}
             opacity={0.7}
             initial={{ scale: 0 }}
-            animate={{ scale: 1, rotate: -30 }}
-            transition={{ delay: 0.3 + index * 0.1 }}
-            style={{ transformOrigin: `${x}px ${groundY - 20}px` }}
+            animate={{ scale: 1 }}
+            transform={`rotate(-30, ${x}, ${groundY - 20})`}
           />
         </g>
       )}
@@ -100,30 +99,24 @@ function Flower({
             animate={{ pathLength: 1 }}
             transition={{ duration: 0.6, delay: index * 0.1 }}
           />
-          {/* Leaves */}
-          <motion.ellipse
+          {/* Stem leaves */}
+          <ellipse
             cx={x + 8}
             cy={groundY - 25}
             rx={7}
             ry={3.5}
             fill={colors.stem}
             opacity={0.7}
-            initial={{ scale: 0 }}
-            animate={{ scale: 1, rotate: -25 }}
-            transition={{ delay: 0.3 + index * 0.1 }}
-            style={{ transformOrigin: `${x}px ${groundY - 25}px` }}
+            transform={`rotate(-25, ${x + 8}, ${groundY - 25})`}
           />
-          <motion.ellipse
+          <ellipse
             cx={x - 8}
             cy={groundY - 35}
             rx={7}
             ry={3.5}
             fill={colors.stem}
             opacity={0.7}
-            initial={{ scale: 0 }}
-            animate={{ scale: 1, rotate: 25 }}
-            transition={{ delay: 0.4 + index * 0.1 }}
-            style={{ transformOrigin: `${x}px ${groundY - 35}px` }}
+            transform={`rotate(25, ${x - 8}, ${groundY - 35})`}
           />
           {/* Small bud */}
           <motion.circle
@@ -139,7 +132,7 @@ function Flower({
         </g>
       )}
 
-      {/* blooming */}
+      {/* Blooming */}
       {stage === "blooming" && (
         <g>
           <motion.line
@@ -153,42 +146,46 @@ function Flower({
             initial={{ pathLength: 0 }}
             animate={{ pathLength: 1 }}
           />
-          {/* Leaves */}
-          <motion.ellipse
+          {/* Stem leaves */}
+          <ellipse
             cx={x + 10}
             cy={groundY - 30}
             rx={8}
             ry={4}
             fill={colors.stem}
             opacity={0.8}
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            style={{ transformOrigin: `${x}px ${groundY - 30}px`, rotate: -25 }}
+            transform={`rotate(-25, ${x + 10}, ${groundY - 30})`}
           />
-          <motion.ellipse
+          <ellipse
             cx={x - 10}
             cy={groundY - 42}
             rx={8}
             ry={4}
             fill={colors.stem}
             opacity={0.8}
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            style={{ transformOrigin: `${x}px ${groundY - 42}px`, rotate: 25 }}
+            transform={`rotate(25, ${x - 10}, ${groundY - 42})`}
           />
-          {/* Petals with organic curves and depth */}
+          {/* Petals - simple ellipses rotated around center */}
           {[0, 60, 120, 180, 240, 300].map((angle) => (
-            <motion.path
+            <motion.ellipse
               key={angle}
-              d={`M ${x} ${groundY - 68} Q ${x + Math.cos(((angle - 20) * Math.PI) / 180) * 15} ${groundY - 68 + Math.sin(((angle - 20) * Math.PI) / 180) * 15} ${x + Math.cos((angle * Math.PI) / 180) * 20} ${groundY - 68 + Math.sin((angle * Math.PI) / 180) * 20} Q ${x + Math.cos(((angle + 20) * Math.PI) / 180) * 15} ${groundY - 68 + Math.sin(((angle + 20) * Math.PI) / 180) * 15} ${x} ${groundY - 68}`}
+              cx={x}
+              cy={groundY - 68 - 10}
+              rx={5}
+              ry={12}
               fill={colors.petal}
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 0.8 }}
-              transition={{ delay: 0.3 + (angle / 360) * 0.3, type: "spring", stiffness: 100 }}
-              style={{ transformOrigin: `${x}px ${groundY - 68}px`, rotate: angle }}
+              opacity={0.8}
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{
+                delay: 0.3 + (angle / 360) * 0.3,
+                type: "spring",
+                stiffness: 100,
+              }}
+              transform={`rotate(${angle}, ${x}, ${groundY - 68})`}
             />
           ))}
-          {/* Pulsing Center */}
+          {/* Center */}
           <motion.circle
             cx={x}
             cy={groundY - 68}
@@ -198,7 +195,7 @@ function Flower({
             animate={{ scale: [1, 1.15, 1] }}
             transition={{
               scale: { duration: 2, repeat: Infinity, ease: "easeInOut" },
-              default: { delay: 0.6, type: "spring" }
+              default: { delay: 0.6, type: "spring" },
             }}
           />
         </g>
@@ -207,14 +204,14 @@ function Flower({
       {/* Full bloom */}
       {stage === "full" && (
         <g>
-          {/* Subtle glow behind full blooms */}
+          {/* Subtle glow */}
           <motion.circle
             cx={x}
             cy={groundY - 84}
             r={25}
             fill={colors.petal}
             initial={{ opacity: 0 }}
-            animate={{ opacity: [0.05, 0.15, 0.05] }}
+            animate={{ opacity: [0.05, 0.12, 0.05] }}
             transition={{ duration: 3, repeat: Infinity }}
           />
 
@@ -232,7 +229,7 @@ function Flower({
               strokeWidth={3}
               strokeLinecap="round"
             />
-            {/* Leaves with detail */}
+            {/* Stem leaves */}
             <ellipse
               cx={x + 12}
               cy={groundY - 30}
@@ -252,40 +249,65 @@ function Flower({
               transform={`rotate(20, ${x - 12}, ${groundY - 45})`}
             />
 
-            {/* Double layered petals for richness - Organic paths */}
+            {/* Outer petals - large ellipses */}
             {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
-              <g key={angle}>
-                {/* Outer petals */}
-                <motion.path
-                  d={`M ${x} ${groundY - 84} Q ${x + Math.cos(((angle - 22) * Math.PI) / 180) * 22} ${groundY - 84 + Math.sin(((angle - 22) * Math.PI) / 180) * 22} ${x + Math.cos((angle * Math.PI) / 180) * 28} ${groundY - 84 + Math.sin((angle * Math.PI) / 180) * 28} Q ${x + Math.cos(((angle + 22) * Math.PI) / 180) * 22} ${groundY - 84 + Math.sin(((angle + 22) * Math.PI) / 180) * 22} ${x} ${groundY - 84}`}
-                  fill={colors.petal}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 0.9 }}
-                  transition={{ delay: (angle / 360) * 0.4, type: "spring" }}
-                  style={{ transformOrigin: `${x}px ${groundY - 84}px`, rotate: angle }}
-                />
-                {/* Inner smaller petals */}
-                <motion.path
-                  d={`M ${x} ${groundY - 84} Q ${x + Math.cos(((angle - 15) * Math.PI) / 180) * 12} ${groundY - 84 + Math.sin(((angle - 15) * Math.PI) / 180) * 12} ${x + Math.cos((angle * Math.PI) / 180) * 16} ${groundY - 84 + Math.sin((angle * Math.PI) / 180) * 16} Q ${x + Math.cos(((angle + 15) * Math.PI) / 180) * 12} ${groundY - 84 + Math.sin(((angle + 15) * Math.PI) / 180) * 12} ${x} ${groundY - 84}`}
-                  fill={colors.center}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 0.5 }}
-                  transition={{ delay: 0.2 + (angle / 360) * 0.4, type: "spring" }}
-                  style={{ transformOrigin: `${x}px ${groundY - 84}px`, rotate: angle }}
-                />
-              </g>
+              <motion.ellipse
+                key={`outer-${angle}`}
+                cx={x}
+                cy={groundY - 84 - 14}
+                rx={7}
+                ry={16}
+                fill={colors.petal}
+                opacity={0.85}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{
+                  delay: (angle / 360) * 0.4,
+                  type: "spring",
+                }}
+                transform={`rotate(${angle}, ${x}, ${groundY - 84})`}
+              />
             ))}
 
+            {/* Inner petals */}
+            {[22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5].map(
+              (angle) => (
+                <motion.ellipse
+                  key={`inner-${angle}`}
+                  cx={x}
+                  cy={groundY - 84 - 8}
+                  rx={4}
+                  ry={10}
+                  fill={colors.center}
+                  opacity={0.45}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{
+                    delay: 0.2 + (angle / 360) * 0.4,
+                    type: "spring",
+                  }}
+                  transform={`rotate(${angle}, ${x}, ${groundY - 84})`}
+                />
+              )
+            )}
+
+            {/* Center */}
             <motion.circle
               cx={x}
               cy={groundY - 84}
               r={9}
               fill={colors.center}
-              animate={{ scale: [1, 1.1, 1], filter: ["brightness(1)", "brightness(1.2)", "brightness(1)"] }}
-              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              animate={{
+                scale: [1, 1.1, 1],
+              }}
+              transition={{
+                duration: 3,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
             />
 
-            {/* Ambient magic particles */}
+            {/* Particles */}
             {[0, 1, 2].map((pi) => {
               const offsetX = ((pi * 23 + index * 37) % 40) - 20;
               const offsetY = ((pi * 41 + index * 13) % 40) - 20;
@@ -300,12 +322,12 @@ function Flower({
                   animate={{
                     y: [0, -20, -40],
                     x: [0, moveX, moveX * 2],
-                    opacity: [0, 0.8, 0]
+                    opacity: [0, 0.8, 0],
                   }}
                   transition={{
                     duration: 2 + (pi % 2),
                     repeat: Infinity,
-                    delay: pi * 0.5
+                    delay: pi * 0.5,
                   }}
                 />
               );
@@ -314,73 +336,29 @@ function Flower({
         </g>
       )}
 
-      {/* Subtopic leaves */}
+      {/* Subtopic count badge — small text near base of stem */}
       {subtopicCount > 0 && (
-        <g>
-          {Array.from({ length: Math.min(subtopicCount, 8) }).map((_, i) => {
-            const count = Math.min(subtopicCount, 8);
-            const offset = (i - (count - 1) / 2) * 16;
-            const tier = i % 3;
-            const baseY =
-              stage === "full"
-                ? groundY - 40
-                : stage === "blooming"
-                  ? groundY - 36
-                  : stage === "growing"
-                    ? groundY - 30
-                    : stage === "sprout"
-                      ? groundY - 22
-                      : groundY - 16;
-            const leafY = baseY + tier * 10;
-            const rotation = offset < 0 ? -30 - tier * 6 : 30 + tier * 6;
-            return (
-              <motion.ellipse
-                key={`leaf-${i}`}
-                cx={x + offset}
-                cy={leafY}
-                rx={7}
-                ry={3.2}
-                fill={colors.stem}
-                opacity={0.7}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2 + i * 0.05 }}
-                style={{
-                  transformOrigin: `${x + offset}px ${leafY}px`,
-                  rotate: rotation,
-                }}
-              />
-            );
-          })}
-          {subtopicCount > 8 && (
-            <text
-              x={x}
-              y={
-                stage === "full"
-                  ? groundY - 58
-                  : stage === "blooming"
-                    ? groundY - 50
-                    : stage === "growing"
-                      ? groundY - 44
-                      : stage === "sprout"
-                        ? groundY - 32
-                        : groundY - 26
-              }
-              textAnchor="middle"
-              fill="rgba(255,255,255,0.7)"
-              fontSize={8}
-              fontWeight="600"
-              fontFamily="Inter, sans-serif"
-            >
-              +{subtopicCount - 8}
-            </text>
-          )}
-        </g>
+        <text
+          x={x}
+          y={groundY + 15}
+          textAnchor="middle"
+          fill="currentColor"
+          className="text-muted-foreground"
+          fontSize={7}
+          fontWeight="500"
+          fontFamily="Inter, sans-serif"
+          opacity={0.5}
+        >
+          {subtopicCount} subtopic{subtopicCount !== 1 ? "s" : ""}
+        </text>
       )}
 
       {/* Tooltip */}
       {hovered && (
-        <motion.g initial={{ opacity: 0, y: 5, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}>
+        <motion.g
+          initial={{ opacity: 0, y: 5, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+        >
           <rect
             x={x - 60}
             y={
@@ -393,7 +371,6 @@ function Flower({
             fill="rgba(10, 20, 10, 0.95)"
             stroke="rgba(74, 222, 128, 0.3)"
             strokeWidth={1}
-            className="shadow-2xl"
           />
           <text
             x={x}
@@ -412,7 +389,8 @@ function Flower({
           <text
             x={x}
             y={
-              groundY - (stage === "full" ? 101 : stage === "blooming" ? 81 : 66)
+              groundY -
+              (stage === "full" ? 101 : stage === "blooming" ? 81 : 66)
             }
             textAnchor="middle"
             fill="#4ade80"
@@ -420,7 +398,8 @@ function Flower({
             fontWeight="600"
             fontFamily="Inter, sans-serif"
           >
-            {Math.round(concept.mastery_score)}% PROFICIENCY · {subtopicCount} subtopic{subtopicCount !== 1 ? "s" : ""}
+            {Math.round(concept.mastery_score)}% &middot;{" "}
+            {subtopicCount} subtopic{subtopicCount !== 1 ? "s" : ""}
           </text>
         </motion.g>
       )}
@@ -482,7 +461,6 @@ export default function KnowledgeGarden({
             className="w-full"
             style={{ minHeight: 180 }}
           >
-            
             {/* Sky background */}
             <defs>
               <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
@@ -512,30 +490,31 @@ export default function KnowledgeGarden({
               transition={{ duration: 5, repeat: Infinity }}
             />
 
-            {/* Stars/Pollen with depth of field */}
-            {mounted && Array.from({ length: 20 }).map((_, i) => (
-              <motion.circle
-                key={i}
-                cx={(i * 137 + 41) % width}
-                cy={(i * 67 + 13) % (groundY - 20)}
-                r={0.4 + (i % 3) * 0.4}
-                fill="#fff"
-                animate={{
-                  opacity: [0.1, 0.4, 0.1],
-                  y: [0, (i % 2 === 0 ? 5 : -5), 0],
-                  x: [0, (i % 3 === 0 ? 3 : -3), 0],
-                }}
-                transition={{
-                  duration: 3 + (i % 4),
-                  repeat: Infinity,
-                  delay: (i % 5),
-                }}
-                style={{
-                  filter: `blur(${(i % 2) * 1}px)`,
-                  opacity: 0.3 + (i % 4) * 0.1
-                }}
-              />
-            ))}
+            {/* Stars/Pollen */}
+            {mounted &&
+              Array.from({ length: 20 }).map((_, i) => (
+                <motion.circle
+                  key={i}
+                  cx={(i * 137 + 41) % width}
+                  cy={(i * 67 + 13) % (groundY - 20)}
+                  r={0.4 + (i % 3) * 0.4}
+                  fill="#fff"
+                  animate={{
+                    opacity: [0.1, 0.4, 0.1],
+                    y: [0, i % 2 === 0 ? 5 : -5, 0],
+                    x: [0, i % 3 === 0 ? 3 : -3, 0],
+                  }}
+                  transition={{
+                    duration: 3 + (i % 4),
+                    repeat: Infinity,
+                    delay: i % 5,
+                  }}
+                  style={{
+                    filter: `blur(${(i % 2) * 1}px)`,
+                    opacity: 0.3 + (i % 4) * 0.1,
+                  }}
+                />
+              ))}
 
             {/* Ground */}
             <rect
@@ -556,9 +535,9 @@ export default function KnowledgeGarden({
 
             {/* Grass tufts */}
             {Array.from({ length: 12 }).map((_, i) => {
-              const xPos = 20 + i * 32 + (i * 7) % 10;
-              const gHeight = 4 + (i * 11) % 5;
-              const slant = (i % 2 === 0 ? 3 : -3);
+              const xPos = 20 + i * 32 + ((i * 7) % 10);
+              const gHeight = 4 + ((i * 11) % 5);
+              const slant = i % 2 === 0 ? 3 : -3;
               return (
                 <motion.line
                   key={`grass-${i}`}
@@ -582,7 +561,10 @@ export default function KnowledgeGarden({
             {groups.map((group, i) => (
               <Flower
                 key={`${group.topic}-${i}`}
-                concept={{ name: group.topic, mastery_score: group.mastery_score }}
+                concept={{
+                  name: group.topic,
+                  mastery_score: group.mastery_score,
+                }}
                 x={startX + i * spacing}
                 colors={colors}
                 index={i}

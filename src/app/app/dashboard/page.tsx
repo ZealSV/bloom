@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -73,7 +73,7 @@ export default function DashboardPage() {
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     async function load() {
@@ -106,12 +106,13 @@ export default function DashboardPage() {
         ]);
 
         if (Array.isArray(conceptsRes.data)) {
-          const deduped = deduplicateConcepts(conceptsRes.data);
+          const conceptData = conceptsRes.data as unknown as Concept[];
+          const deduped = deduplicateConcepts(conceptData);
           setConcepts(deduped);
 
           const sessionById = new Map(rows.map((s) => [s.id, s]));
           const groups = new Map<string, Concept[]>();
-          for (const concept of conceptsRes.data) {
+          for (const concept of conceptData) {
             const session = sessionById.get(concept.session_id);
             const topic = session?.topic?.trim() || "Untitled";
             if (!groups.has(topic)) groups.set(topic, []);

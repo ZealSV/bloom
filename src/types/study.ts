@@ -1,0 +1,96 @@
+// ---- Lecture types ----
+
+export interface LectureSummary {
+  title: string;
+  keyPoints: string[];
+  sections: {
+    heading: string;
+    content: string;
+  }[];
+  keyTerms: {
+    term: string;
+    definition: string;
+  }[];
+}
+
+export interface Lecture {
+  id: string;
+  user_id: string;
+  title: string;
+  transcript: string;
+  summary: LectureSummary | null;
+  status: "recording" | "processing" | "ready" | "failed";
+  duration_seconds: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---- Flashcard types ----
+
+export type FlashcardDifficulty = "easy" | "medium" | "hard";
+
+export interface Flashcard {
+  id: string;
+  deck_id: string;
+  front: string;
+  back: string;
+  difficulty: FlashcardDifficulty;
+  times_reviewed: number;
+  times_correct: number;
+  next_review_at: string | null;
+  created_at: string;
+}
+
+export interface FlashcardDeck {
+  id: string;
+  user_id: string;
+  title: string;
+  source_type: SourceType;
+  source_ids: string[];
+  card_count: number;
+  created_at: string;
+}
+
+// ---- Exam types ----
+
+export type QuestionType = "multiple_choice" | "short_answer" | "true_false";
+
+export interface ExamQuestion {
+  id: string;
+  type: QuestionType;
+  question: string;
+  options?: string[];
+  correctAnswer: string;
+  explanation: string;
+}
+
+export interface PracticeExam {
+  id: string;
+  user_id: string;
+  title: string;
+  questions: ExamQuestion[];
+  source_type: SourceType;
+  source_ids: string[];
+  created_at: string;
+}
+
+export interface ExamAttempt {
+  id: string;
+  exam_id: string;
+  user_id: string;
+  answers: Record<string, string>;
+  score: number | null;
+  feedback: Record<string, { correct: boolean; explanation: string }> | null;
+  completed_at: string;
+}
+
+// ---- Shared types ----
+
+export type SourceType = "lecture" | "document" | "session" | "all";
+
+export interface StudySource {
+  id: string;
+  type: SourceType;
+  title: string;
+  createdAt: string;
+}

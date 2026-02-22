@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/hooks/useSession";
 import { useStreamingChat } from "@/hooks/useStreamingChat";
@@ -38,7 +38,7 @@ export default function AppPage() {
   const [isLiveMode, setIsLiveMode] = useState(false);
   const [user, setUser] = useState<any>(null);
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const { speak, stop: stopSpeaking, isSpeaking } = useTextToSpeech();
 
   useEffect(() => {

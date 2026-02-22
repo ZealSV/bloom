@@ -84,7 +84,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <Card className="bg-card/50 border-border backdrop-blur">
+        <Card className="bg-card border-border">
           <CardHeader className="pb-4">
             <div className="space-y-2">
               <Button
