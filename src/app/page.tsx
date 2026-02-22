@@ -73,7 +73,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             {isLoggedIn ? (
               <Button size="sm" className="text-xs h-8" asChild>
-                <Link href="/app">Enter<ArrowRight className="ml-1.5 h-3 w-3" /></Link>
+                <Link href="/app">Enter <ArrowRight className="h-3 w-3" /></Link>
               </Button>
             ) : (
               <>
@@ -91,30 +91,48 @@ export default function LandingPage() {
 
       <section className="relative z-10 border-b-[1.5px] border-border">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-12 pt-20 sm:pt-32 pb-16 sm:pb-24">
-          <motion.div
-            initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            transition={gentle}
-          >
-            <p className="text-xs text-muted-foreground tracking-widest uppercase mb-6">Learn by teaching</p>
-            <h1 className="font-outfit text-3xl sm:text-4xl md:text-6xl font-bold tracking-tight text-foreground leading-[1.08] mb-6 max-w-2xl">
-              The best way to learn is to teach.
-            </h1>
-            <p className="text-base sm:text-lg text-muted-foreground max-w-lg leading-relaxed mb-10">
-              Bloom pretends to be your student. Explain any concept, and it asks the questions that reveal what you actually know — and what you don&apos;t.
-            </p>
-            <div className="flex items-center gap-3">
-              <Button size="lg" className="h-11 px-6 text-sm" asChild>
-                <Link href={isLoggedIn ? "/app" : "/auth/signup"}>
-                  {isLoggedIn ? "Enter" : "Start teaching"}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-              <Button size="lg" variant="outline" className="h-11 px-6 text-sm" asChild>
-                <Link href="#how" onClick={scrollToHow}>How it works</Link>
-              </Button>
-            </div>
-          </motion.div>
+          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-16">
+            <motion.div
+              className="flex-1"
+              initial={{ opacity: 0, y: 20, filter: "blur(8px)" }}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              transition={gentle}
+            >
+              <p className="text-xs text-muted-foreground tracking-widest uppercase mb-6">Learn by teaching</p>
+              <h1 className="font-outfit text-3xl sm:text-4xl md:text-6xl font-bold tracking-tight text-foreground leading-[1.08] mb-6 max-w-2xl">
+                The best way to learn is to teach.
+              </h1>
+              <p className="text-base sm:text-lg text-muted-foreground max-w-lg leading-relaxed mb-10">
+                Bloom pretends to be your student. Explain any concept, and it asks the questions that reveal what you actually know — and what you don&apos;t.
+              </p>
+              <div className="flex items-center gap-3">
+                <Button size="lg" className="h-11 px-6 text-sm" asChild>
+                  <Link href={isLoggedIn ? "/app" : "/auth/signup"}>
+                    {isLoggedIn ? "Enter" : "Start teaching"}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+                <Button size="lg" variant="outline" className="h-11 px-6 text-sm" asChild>
+                  <Link href="#how" onClick={scrollToHow}>How it works</Link>
+                </Button>
+              </div>
+            </motion.div>
+            <motion.div
+              className="flex-1 hidden lg:flex justify-center"
+              initial={{ opacity: 0, scale: 0.95, filter: "blur(8px)" }}
+              animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+              transition={{ ...gentle, delay: 0.15 }}
+            >
+              <Image
+                src="/bloom-default.png"
+                alt="Bloom app preview"
+                width={480}
+                height={480}
+                className=""
+                priority
+              />
+            </motion.div>
+          </div>
         </div>
       </section>
 
@@ -156,16 +174,19 @@ export default function LandingPage() {
       </section>
 
       <section className="relative z-10 border-b-[1.5px] border-border">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-12 py-20 sm:py-32 text-center">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={gentle}>
-            <h2 className="font-outfit text-2xl sm:text-4xl font-bold text-foreground tracking-tight mb-4">Ready to teach?</h2>
-            <p className="text-muted-foreground mb-8 max-w-sm mx-auto">Discover what you truly know. Start your first session.</p>
-            <Button size="lg" className="h-11 px-8 text-sm" asChild>
-              <Link href={isLoggedIn ? "/app" : "/auth/signup"}>
-                {isLoggedIn ? "Enter" : "Get started"}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Link>
-            </Button>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 md:px-12 py-20 sm:py-32">
+          <motion.div className="flex flex-col sm:flex-row items-center justify-center gap-8" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={gentle}>
+            <Image src="/bloom-curious.png" alt="Bloom curious" width={250} height={250} className="shrink-0" />
+            <div className="text-center flex flex-col items-center">
+              <h2 className="font-outfit text-2xl sm:text-4xl font-bold text-foreground tracking-tight mb-4">Ready to teach?</h2>
+              <p className="text-muted-foreground mb-8 max-w-sm">Discover what you truly know. Start your first session.</p>
+              <Button size="lg" className="h-11 px-8 text-sm" asChild>
+                <Link href={isLoggedIn ? "/app" : "/auth/signup"}>
+                  {isLoggedIn ? "Enter" : "Get started"}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            </div>
           </motion.div>
         </div>
       </section>
@@ -188,27 +209,37 @@ export default function LandingPage() {
 function StickyHowItWorks() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: containerRef, offset: ["start start", "end end"] });
-  const smoothProgress = useSpring(scrollYProgress, { stiffness: 60, damping: 25, restDelta: 0.001 });
+  const smoothProgress = useSpring(scrollYProgress, { stiffness: 120, damping: 28, restDelta: 0.001 });
 
-  const topicOpacity = useTransform(smoothProgress, [0, 0.3, 0.45], [1, 1, 0]);
-  const chatOpacity = useTransform(smoothProgress, [0.25, 0.45, 0.65, 0.8], [0, 1, 1, 0]);
-  const gardenOpacity = useTransform(smoothProgress, [0.65, 0.8, 1], [0, 1, 1]);
+  const topicOpacity = useTransform(smoothProgress, [0, 0.28, 0.35], [1, 1, 0]);
+  const chatOpacity = useTransform(smoothProgress, [0.28, 0.35, 0.62, 0.69], [0, 1, 1, 0]);
+  const gardenOpacity = useTransform(smoothProgress, [0.62, 0.69, 1], [0, 1, 1]);
 
-  const topicX = useTransform(smoothProgress, [0.3, 0.45], [0, -20]);
-  const chatX = useTransform(smoothProgress, [0.25, 0.45, 0.65, 0.8], [20, 0, 0, -20]);
-  const gardenX = useTransform(smoothProgress, [0.65, 0.8], [20, 0]);
+  const topicX = useTransform(smoothProgress, [0.28, 0.35], [0, -20]);
+  const chatX = useTransform(smoothProgress, [0.28, 0.35, 0.62, 0.69], [20, 0, 0, -20]);
+  const gardenX = useTransform(smoothProgress, [0.62, 0.69], [20, 0]);
 
-  const stageScale = useTransform(smoothProgress, [0, 0.4, 0.7, 1], [1, 0.98, 0.98, 1]);
+  const stageScale = useTransform(smoothProgress, [0, 0.35, 0.69, 1], [1, 0.98, 0.98, 1]);
 
   const steps = [
-    { num: "01", title: "Choose a topic", desc: "Pick anything — biology, algorithms, history. Bloom adapts to any subject and complexity level. Just tell it what you want to teach." },
-    { num: "02", title: "Explain it", desc: "Teach the concept in your own words. Bloom asks probing questions, makes wrong inferences, and exposes gaps in your logic." },
-    { num: "03", title: "Watch it grow", desc: "Each concept becomes a flower in your garden. Seeds sprout as understanding deepens. Mastery makes them bloom into your knowledge garden." },
+    { num: "01", title: "Choose a topic", desc: "Pick anything — biology, algorithms, history. Bloom adapts to any subject and complexity level. Just tell it what you want to teach.", bloomImg: "/bloom-zen.png" },
+    { num: "02", title: "Explain it", desc: "Teach the concept in your own words. Bloom asks probing questions, makes wrong inferences, and exposes gaps in your logic.", bloomImg: "/bloom-wink.png" },
+    { num: "03", title: "Watch it grow", desc: "Each concept becomes a flower in your garden. Seeds sprout as understanding deepens. Mastery makes them bloom into your knowledge garden.", bloomImg: null },
   ];
 
   return (
     <div ref={containerRef} className="max-w-5xl mx-auto px-4 sm:px-6 md:px-12 relative h-[300vh]">
-      <div className="flex flex-col lg:flex-row gap-12 lg:gap-24 relative h-full">
+      {/* Mobile sticky visual — outside flex so sticky works within the 300vh container */}
+      <div className="lg:hidden sticky top-14 z-20 pt-4 pb-2">
+        <div className="w-full h-48 rounded-2xl bg-card/95 backdrop-blur-xl border border-border/50 overflow-hidden shadow-xl relative">
+          <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-transparent opacity-50" />
+          <motion.div style={{ opacity: topicOpacity }} className="absolute inset-0 flex items-center justify-center p-6"><TopicVisual /></motion.div>
+          <motion.div style={{ opacity: chatOpacity }} className="absolute inset-0 flex items-center justify-center p-6"><ChatVisual /></motion.div>
+          <motion.div style={{ opacity: gardenOpacity }} className="absolute inset-0 flex items-center justify-center p-6"><GardenVisual /></motion.div>
+        </div>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-12 lg:gap-24 relative lg:h-full">
         <div className="flex-1">
           {steps.map((step, i) => (
             <div key={i} className="h-screen flex flex-col justify-center">
@@ -232,12 +263,6 @@ function StickyHowItWorks() {
               </motion.div>
             </div>
           </div>
-        </div>
-
-        <div className="lg:hidden w-full h-64 rounded-3xl bg-card border border-border/50 overflow-hidden shadow-xl mb-24 relative">
-          <motion.div style={{ opacity: topicOpacity }} className="absolute inset-0 flex items-center justify-center p-6"><TopicVisual /></motion.div>
-          <motion.div style={{ opacity: chatOpacity }} className="absolute inset-0 flex items-center justify-center p-6"><ChatVisual /></motion.div>
-          <motion.div style={{ opacity: gardenOpacity }} className="absolute inset-0 flex items-center justify-center p-6"><GardenVisual /></motion.div>
         </div>
       </div>
     </div>
