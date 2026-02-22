@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, X, Sprout, LayoutDashboard } from "lucide-react";
+import { Plus, X, Sprout, LayoutDashboard, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Session } from "@/hooks/useSession";
 
@@ -53,6 +53,13 @@ export default function SessionHistory({
         >
           <LayoutDashboard className="h-4 w-4" />
           Dashboard
+        </Link>
+        <Link
+          href="/app/buckets"
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <Square className="h-4 w-4" />
+          Buckets
         </Link>
         <Button
           onClick={onNew}
