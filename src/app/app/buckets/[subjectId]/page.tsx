@@ -48,6 +48,7 @@ import type {
   Subject,
   SlideDeck,
   Slide,
+  SourceType,
 } from "@/types/study";
 
 type LectureViewState =
@@ -128,7 +129,7 @@ export default function SubjectDetailPage({
     id: string;
   } | null>(null);
   const [slideSources, setSlideSources] = useState<{
-    sourceType: "all" | "lecture" | "document" | "session";
+    sourceType: SourceType;
     sourceIds: string[];
   }>({ sourceType: "all", sourceIds: [] });
 

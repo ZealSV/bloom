@@ -5,6 +5,7 @@ export interface Subject {
   user_id: string;
   name: string;
   color: string | null;
+  canvas_course_id?: number | null;
   created_at: string;
   lecture_count?: number;
   deck_count?: number;

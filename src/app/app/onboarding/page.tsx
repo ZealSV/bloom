@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import CanvasSetupForm from "@/components/canvas/CanvasSetupForm";
+import { useCanvasSync } from "@/hooks/useCanvasSync";
 
 type UserType = "personal" | "student" | "professional";
 
@@ -42,10 +44,12 @@ const ONBOARDING_BUCKET_COLORS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState<"intro" | "profile" | "categories" | "confirm">(
+  const [step, setStep] = useState<"intro" | "profile" | "canvas" | "categories" | "confirm">(
     "intro"
   );
   const [userType, setUserType] = useState<UserType | null>(null);
+  const [canvasConnected, setCanvasConnected] = useState(false);
+  const canvas = useCanvasSync();
   const [categoryInput, setCategoryInput] = useState("");
   const [categories, setCategories] = useState<string[]>([]);
   const hasCategories = categories.length > 0;
@@ -140,6 +144,16 @@ export default function OnboardingPage() {
         // Continue to app even if setup partially fails.
       }
 
+      // If Canvas credentials were provided, sync courses + files
+      if (canvasConnected) {
+        try {
+          setSetupMessage("Syncing your Canvas courses...");
+          await fetch("/api/canvas/sync", { method: "POST" });
+        } catch {
+          // Non-blocking — user can re-sync later from settings
+        }
+      }
+
       try {
         setSetupMessage("Finalizing your onboarding...");
         const onboardingRes = await fetch("/api/onboarding", { method: "PATCH" });
@@ -173,7 +187,7 @@ export default function OnboardingPage() {
     return () => {
       cancelled = true;
     };
-  }, [step, router, userType, categories, setupRunId]);
+  }, [step, router, userType, categories, canvasConnected, setupRunId]);
 
   return (
     <main className="min-h-screen bg-background flex items-center justify-center p-6">
@@ -340,9 +354,68 @@ export default function OnboardingPage() {
                 <Button
                   className="h-10 px-5"
                   disabled={!userType}
-                  onClick={() => setStep("categories")}
+                  onClick={() => setStep(userType === "student" ? "canvas" : "categories")}
                 >
                   Continue
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </motion.div>
+          ) : step === "canvas" ? (
+            <motion.div
+              key="canvas"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+              className="relative"
+            >
+              <motion.div
+                className="mx-auto mb-5 h-10 w-10 rounded-xl border border-primary/30 bg-primary/10 p-2"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.25 }}
+              >
+                <Image
+                  src="/bloomlogo.png"
+                  alt="bloom logo"
+                  width={24}
+                  height={24}
+                  className="rounded-md"
+                />
+              </motion.div>
+
+              <h1 className="font-outfit text-2xl font-semibold text-foreground">
+                Connect Canvas LMS
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Import your courses and files automatically.
+              </p>
+
+              <div className="mt-6 text-left">
+                <CanvasSetupForm
+                  saveCredentials={canvas.saveCredentials}
+                  loading={canvas.loading}
+                  error={canvas.error}
+                  onSuccess={() => setCanvasConnected(true)}
+                />
+              </div>
+
+              <div className="mt-6 flex items-center justify-center gap-2">
+                <Button
+                  variant="ghost"
+                  className="h-10 px-4"
+                  onClick={() => setStep("profile")}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Back
+                </Button>
+                <Button
+                  variant={canvasConnected ? "default" : "outline"}
+                  className="h-10 px-5"
+                  onClick={() => setStep("categories")}
+                >
+                  {canvasConnected ? "Continue" : "Skip"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
@@ -438,7 +511,7 @@ export default function OnboardingPage() {
                 <Button
                   variant="ghost"
                   className="h-10 px-4"
-                  onClick={() => setStep("profile")}
+                  onClick={() => setStep(userType === "student" ? "canvas" : "profile")}
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back

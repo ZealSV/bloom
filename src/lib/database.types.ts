@@ -184,6 +184,7 @@ export type Database = {
           user_id: string;
           name: string;
           color: string | null;
+          canvas_course_id: number | null;
           created_at: string;
         };
         Insert: {
@@ -191,6 +192,7 @@ export type Database = {
           user_id: string;
           name: string;
           color?: string | null;
+          canvas_course_id?: number | null;
           created_at?: string;
         };
         Update: {
@@ -198,6 +200,39 @@ export type Database = {
           user_id?: string;
           name?: string;
           color?: string | null;
+          canvas_course_id?: number | null;
+        };
+        Relationships: [];
+      };
+      canvas_credentials: {
+        Row: {
+          user_id: string;
+          canvas_base_url: string;
+          canvas_api_token_encrypted: string;
+          last_sync_at: string | null;
+          last_sync_status: string | null;
+          last_sync_error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          canvas_base_url: string;
+          canvas_api_token_encrypted: string;
+          last_sync_at?: string | null;
+          last_sync_status?: string | null;
+          last_sync_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          canvas_base_url?: string;
+          canvas_api_token_encrypted?: string;
+          last_sync_at?: string | null;
+          last_sync_status?: string | null;
+          last_sync_error?: string | null;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -418,6 +453,132 @@ export type Database = {
             columns: ["exam_id"];
             isOneToOne: false;
             referencedRelation: "practice_exams";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      documents: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          file_type: string;
+          file_path: string;
+          status: string;
+          subject_id: string | null;
+          canvas_file_id: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          title: string;
+          file_type: string;
+          file_path?: string;
+          status?: string;
+          subject_id?: string | null;
+          canvas_file_id?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          title?: string;
+          file_type?: string;
+          file_path?: string;
+          status?: string;
+          subject_id?: string | null;
+          canvas_file_id?: number | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "documents_subject_id_fkey";
+            columns: ["subject_id"];
+            isOneToOne: false;
+            referencedRelation: "subjects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      slide_decks: {
+        Row: {
+          id: string;
+          user_id: string;
+          subject_id: string | null;
+          title: string;
+          slide_count: number;
+          template: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          subject_id?: string | null;
+          title: string;
+          slide_count?: number;
+          template?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          subject_id?: string | null;
+          title?: string;
+          slide_count?: number;
+          template?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "slide_decks_subject_id_fkey";
+            columns: ["subject_id"];
+            isOneToOne: false;
+            referencedRelation: "subjects";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
+      slides: {
+        Row: {
+          id: string;
+          deck_id: string;
+          slide_index: number;
+          title: string;
+          bullets: string[];
+          speaker_notes: string;
+          image_url: string | null;
+          layout: string;
+          hero_bullet: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          deck_id: string;
+          slide_index: number;
+          title: string;
+          bullets?: string[];
+          speaker_notes?: string;
+          image_url?: string | null;
+          layout?: string;
+          hero_bullet?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          deck_id?: string;
+          slide_index?: number;
+          title?: string;
+          bullets?: string[];
+          speaker_notes?: string;
+          image_url?: string | null;
+          layout?: string;
+          hero_bullet?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "slides_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "slide_decks";
             referencedColumns: ["id"];
           }
         ];

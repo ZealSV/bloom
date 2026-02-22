@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
       h: 0.35,
       fill: { color: theme.accent, transparency: 10 },
       line: { color: theme.accent },
-      radius: 0.08,
+      rectRadius: 0.08,
     });
     s.addText(label.toUpperCase(), {
       x: 0.7,
@@ -190,7 +190,7 @@ export async function POST(req: NextRequest) {
       h: 0.9,
       fill: { color: theme.accent, transparency: 10 },
       line: { color: theme.accent },
-      radius: 0.08,
+      rectRadius: 0.08,
     });
     s.addText(`Key idea: ${heroText}`, {
       x: 0.9,
@@ -507,7 +507,7 @@ export async function POST(req: NextRequest) {
         h: 0.5,
         fill: { color: "E2E8F0", transparency: 30 },
         line: { color: "E2E8F0" },
-        radius: 0.08,
+        rectRadius: 0.08,
       });
       s.addText(`Key terms: ${terms.join(" • ")}`, {
         x: x + 0.2,
@@ -641,9 +641,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const buffer = await pptx.write("nodebuffer");
+  const buffer = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;
 
-  return new Response(buffer, {
+  return new Response(new Uint8Array(buffer), {
     status: 200,
     headers: {
       "Content-Type":

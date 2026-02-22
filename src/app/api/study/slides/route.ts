@@ -176,14 +176,14 @@ export async function POST(req: NextRequest) {
         title: s.title || `Slide ${i + 1}`,
         bullets,
         speaker_notes: s.speakerNotes || "",
-        image_url: null,
+        image_url: null as string | null,
         layout,
         hero_bullet: hero || null,
       });
     }
 
     if (generateImages) {
-      const candidates = result.slides
+      const candidates = (result.slides as any[])
         .map((s, idx) => {
           const bullets = Array.isArray(s.bullets) ? s.bullets.map(normalizeBullet) : [];
           const type = inferSlideType(s.title || "", bullets);

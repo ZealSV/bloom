@@ -3,7 +3,8 @@
 import { ReactNode, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Menu } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LogOut, Menu, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
@@ -29,6 +30,7 @@ export default function Layout({
   onSignOut,
   onLogoClick,
 }: LayoutProps) {
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const email = typeof user?.email === "string" ? user.email : "";
@@ -82,6 +84,10 @@ export default function Layout({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => router.push("/app/settings")}>
+                  <Settings className="h-3.5 w-3.5 mr-2" />
+                  Settings
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={onSignOut}
                   className="text-destructive focus:text-destructive"

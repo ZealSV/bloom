@@ -22,6 +22,7 @@ export async function GET() {
     user_id: s.user_id,
     name: s.name,
     color: s.color,
+    canvas_course_id: s.canvas_course_id ?? null,
     created_at: s.created_at,
     lecture_count: s.lectures?.[0]?.count ?? 0,
     deck_count: s.flashcard_decks?.[0]?.count ?? 0,
