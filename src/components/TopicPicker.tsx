@@ -75,7 +75,7 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="e.g., How DNA replication works..."
-                className="h-12 pl-12 pr-4 ring-2 ring-transparent focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-background shadow-lg hover:shadow-emerald-500/10 transition-all duration-300"
+                className="h-12 pl-12 pr-4 ring-2 ring-transparent focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-background shadow-lg transition-all duration-300"
                 autoFocus
               />
               <Sparkles className="absolute left-4 w-5 h-5 text-emerald-600 pointer-events-none" />
