@@ -37,6 +37,11 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
+      try {
+        await fetch("/api/onboarding", { method: "POST" });
+      } catch {
+        // Non-blocking: user can still continue if bootstrap call fails.
+      }
       router.push("/app");
       router.refresh();
     }

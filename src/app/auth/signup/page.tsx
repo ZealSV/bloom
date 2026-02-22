@@ -41,7 +41,7 @@ export default function SignupPage() {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -53,6 +53,15 @@ export default function SignupPage() {
       setError(error.message);
       setLoading(false);
     } else {
+      // If email confirmation is disabled and a session exists immediately,
+      // bootstrap onboarding row right away.
+      if (data.session) {
+        try {
+          await fetch("/api/onboarding", { method: "POST" });
+        } catch {
+          // Non-blocking for signup UX.
+        }
+      }
       setSuccess(true);
       setLoading(false);
     }

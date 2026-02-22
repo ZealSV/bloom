@@ -17,6 +17,15 @@ function isMissingDbObjectError(error: { code?: string; message?: string } | nul
   );
 }
 
+function isMissingSubjectIdColumnError(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  const message = (error.message || "").toLowerCase();
+  return (
+    (error.code === "42703" || error.code === "PGRST204" || error.code === "PGRST205") &&
+    message.includes("subject_id")
+  );
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient();
@@ -65,22 +74,39 @@ export async function POST(req: NextRequest) {
         ? titleValue.trim()
         : file.name;
 
-    const { data: document, error: insertError } = await supabaseAdmin
+    const baseInsert = {
+      user_id: userId,
+      title,
+      file_type: file.type,
+      file_path: "",
+      status: "uploaded",
+    };
+
+    let insertResult = await supabaseAdmin
       .from("documents")
       .insert({
-        user_id: userId,
-        title,
-        file_type: file.type,
-        file_path: "",
-        status: "uploaded",
+        ...baseInsert,
         ...(subjectId ? { subject_id: subjectId } : {}),
       })
       .select()
       .single();
 
+    if (subjectId && isMissingSubjectIdColumnError(insertResult.error)) {
+      insertResult = await supabaseAdmin
+        .from("documents")
+        .insert(baseInsert)
+        .select()
+        .single();
+    }
+
+    const { data: document, error: insertError } = insertResult;
+
     if (insertError || !document) {
+      const reason = insertError
+        ? `${insertError.message || "Unknown error"}${insertError.code ? ` (${insertError.code})` : ""}`
+        : "No document returned";
       return NextResponse.json(
-        { error: "Failed to create document record" },
+        { error: `Failed to create document record: ${reason}` },
         { status: 500 }
       );
     }
