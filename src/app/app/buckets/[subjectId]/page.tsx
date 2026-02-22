@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { use } from "react";
 import Link from "next/link";
@@ -42,7 +42,6 @@ import SourceSelector from "@/components/study/SourceSelector";
 import DelelteConfirm from "@/components/delelteConfirm";
 import { useFlashcards } from "@/hooks/useFlashcards";
 import { useExam } from "@/hooks/useExam";
-import { createClient } from "@/lib/supabase-browser";
 import type {
   Lecture,
   FlashcardDeck as DeckType,
@@ -138,8 +137,6 @@ export default function SubjectDetailPage({
     sourceIds: string[];
   }>({ sourceType: "all", sourceIds: [] });
 
-  const supabase = useMemo(() => createClient(), []);
-
   // Edit dialog state
   const [editDialog, setEditDialog] = useState<{
     open: boolean;
@@ -175,13 +172,9 @@ export default function SubjectDetailPage({
   }, [subjectId]);
 
   const fetchDocuments = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("documents" as any)
-      .select("id, title, status, created_at, subject_id")
-      .eq("subject_id", subjectId)
-      .order("created_at", { ascending: false });
-
-    if (!error && Array.isArray(data)) {
+    const res = await fetch(`/api/documents?subject_id=${subjectId}`);
+    if (res.ok) {
+      const data = await res.json();
       setDocuments(
         data.map((d: any) => ({
           id: d.id,
@@ -191,7 +184,7 @@ export default function SubjectDetailPage({
         }))
       );
     }
-  }, [subjectId, supabase]);
+  }, [subjectId]);
 
   const fetchSlideDecks = useCallback(async () => {
     const res = await fetch(`/api/study/slides?subject_id=${subjectId}`);
@@ -323,6 +316,7 @@ export default function SubjectDetailPage({
       }
 
       setUploadSuccess(true);
+      await fetchDocuments();
     } catch (error) {
       setUploadError(
         error instanceof Error ? error.message : "Failed to upload file."
@@ -330,7 +324,7 @@ export default function SubjectDetailPage({
     } finally {
       setIsUploadingFile(false);
     }
-  }, [uploadFile]);
+  }, [uploadFile, fetchDocuments]);
 
   const handleEditSave = useCallback(async () => {
     const { type, id, title } = editDialog;
@@ -1407,28 +1401,40 @@ export default function SubjectDetailPage({
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div className="rounded-lg border border-border p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <p className="text-xs text-muted-foreground">PDFs</p>
+                        <p className="text-xs text-muted-foreground">Materials</p>
                         <span className="text-[10px] text-muted-foreground/70">
                           {documents.length} file{documents.length !== 1 ? "s" : ""}
                         </span>
                       </div>
                       {documents.length === 0 ? (
                         <p className="text-xs text-muted-foreground">
-                          No PDFs uploaded yet.
+                          No files uploaded yet.
                         </p>
                       ) : (
                         <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                           {documents.map((doc) => (
                             <div
                               key={doc.id}
-                              className="rounded-md border border-border/60 bg-muted/10 px-3 py-2"
+                              className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/10 px-3 py-2"
                             >
-                              <p className="text-xs font-medium text-foreground truncate">
-                                {doc.title}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground">
-                                {doc.status} · {new Date(doc.created_at).toLocaleDateString()}
-                              </p>
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-foreground truncate">
+                                  {doc.title}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {doc.status === "ready" ? "Indexed" : doc.status} · {new Date(doc.created_at).toLocaleDateString()}
+                                </p>
+                              </div>
+                              <button
+                                onClick={async () => {
+                                  const res = await fetch(`/api/documents?id=${doc.id}`, { method: "DELETE" });
+                                  if (res.ok) fetchDocuments();
+                                }}
+                                className="shrink-0 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
                             </div>
                           ))}
                         </div>
