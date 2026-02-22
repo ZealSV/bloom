@@ -18,6 +18,13 @@ export interface Message {
   content: string;
   created_at?: string;
   isStreaming?: boolean;
+  citations?: {
+    chunkId: number | null;
+    documentId: string;
+    documentTitle: string;
+    snippet: string;
+    score: number;
+  }[];
 }
 
 export interface Concept {

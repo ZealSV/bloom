@@ -18,6 +18,14 @@ interface bloomAnalysis {
   overall_session_mastery: number;
 }
 
+interface Citation {
+  chunkId: number | null;
+  documentId: string;
+  documentTitle: string;
+  snippet: string;
+  score: number;
+}
+
 interface UseStreamingChatProps {
   sessionId: string | null;
   onMessage: (messages: Message[]) => void;
@@ -141,11 +149,15 @@ export function useStreamingChat({
                   onAnalysis(data.content);
                 } else if (data.type === "done") {
                   const finalContent = data.chatMessage || bloomContent;
+                  const citations = Array.isArray(data.citations)
+                    ? (data.citations as Citation[])
+                    : undefined;
                   const updated = [...newMessages];
                   updated[updated.length - 1] = {
                     ...bloomPlaceholder,
                     content: finalContent,
                     isStreaming: false,
+                    citations,
                   };
                   onMessage([...updated]);
                   onComplete?.(finalContent);

@@ -233,6 +233,7 @@ export default function AppPage() {
       <TopicPicker onStart={handleStartSession} loading={loading} />
     ) : (
       <Chat
+        sessionId={currentSession.id}
         topic={currentSession.topic}
         messages={messages}
         concepts={concepts}

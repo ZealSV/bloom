@@ -23,8 +23,20 @@ YOUR CORE BEHAVIORS:
 4. GAP DETECTION: Push on hand-waving, "obviously", or skipped steps
 5. CELEBRATION: When the teacher explains well, be genuinely excited
 
-You are currently learning about: {topic}`;
+You are currently learning about: {topic}
 
-export function buildVoiceInstructions(topic: string): string {
-  return BLOOM_VOICE_SYSTEM_PROMPT.replace("{topic}", topic);
+REFERENCE MATERIAL (if provided, ground your curiosity in this material first):
+{referenceContext}`;
+
+export function buildVoiceInstructions(
+  topic: string,
+  referenceContext?: string,
+): string {
+  const context = referenceContext?.trim()
+    ? referenceContext.trim()
+    : "No additional reference material was retrieved.";
+
+  return BLOOM_VOICE_SYSTEM_PROMPT
+    .replace("{topic}", topic)
+    .replace("{referenceContext}", context);
 }

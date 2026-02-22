@@ -5,10 +5,8 @@ import {
   type ChatMessage,
   type bloomAnalysis,
 } from "@/lib/ai-engine";
-import OpenAI from "openai";
 import { userOwnsSession } from "@/lib/session-access";
-
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { retrieveRelevantChunks } from "@/lib/rag";
 
 export async function POST(
   req: NextRequest,
@@ -47,75 +45,6 @@ export async function POST(
     role: m.role === "student" ? ("user" as const) : ("assistant" as const),
     content: m.content,
   }));
-
-  async function parseEmbeddingValue(value: unknown): Promise<number[] | null> {
-    if (Array.isArray(value)) {
-      const nums = value.map((v) => Number(v)).filter((n) => Number.isFinite(n));
-      return nums.length > 0 ? nums : null;
-    }
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return null;
-      const parts = trimmed.slice(1, -1).split(",");
-      const nums = parts.map((p) => Number(p.trim())).filter((n) => Number.isFinite(n));
-      return nums.length > 0 ? nums : null;
-    }
-    return null;
-  }
-
-  function cosineSimilarity(a: number[], b: number[]): number {
-    const len = Math.min(a.length, b.length);
-    if (len === 0) return 0;
-    let dot = 0;
-    let normA = 0;
-    let normB = 0;
-    for (let i = 0; i < len; i += 1) {
-      const av = a[i];
-      const bv = b[i];
-      dot += av * bv;
-      normA += av * av;
-      normB += bv * bv;
-    }
-    if (normA === 0 || normB === 0) return 0;
-    return dot / (Math.sqrt(normA) * Math.sqrt(normB));
-  }
-
-  async function fetchReferenceContext(query: string, userId: string) {
-    if (!process.env.OPENAI_API_KEY) return "";
-
-    const embeddingResponse = await openai.embeddings.create({
-      model: "text-embedding-3-small",
-      input: query,
-    });
-
-    const queryEmbedding = embeddingResponse.data[0]?.embedding;
-    if (!queryEmbedding) return "";
-
-    const { data: chunkRows } = await supabase
-      .from("chunks" as any)
-      .select("content, embedding")
-      .eq("user_id", userId)
-      .limit(200) as { data: { content: string; embedding: any }[] | null };
-
-    if (!Array.isArray(chunkRows) || chunkRows.length === 0) return "";
-
-    const scored: { content: string; score: number }[] = [];
-
-    for (const row of chunkRows) {
-      const embedding = await parseEmbeddingValue(row.embedding);
-      if (!embedding) continue;
-      const score = cosineSimilarity(queryEmbedding, embedding);
-      scored.push({ content: row.content, score });
-    }
-
-    scored.sort((a, b) => b.score - a.score);
-    const top = scored.filter((s) => s.score > 0.18).slice(0, 8);
-    if (top.length === 0) return "";
-
-    return top
-      .map((s, i) => `(${i + 1}) ${s.content.slice(0, 800)}`)
-      .join("\n\n");
-  }
 
   async function processAnalysis(analysis: bloomAnalysis) {
     // Upsert concepts
@@ -205,12 +134,17 @@ export async function POST(
       try {
         let chatMessage = "";
 
-        const referenceContext = await fetchReferenceContext(message, user.id);
+        const retrieval = await retrieveRelevantChunks({
+          supabase,
+          userId: user.id,
+          query: message,
+          sessionId,
+        });
 
         for await (const event of streambloomResponse(
           chatHistory,
           message,
-          referenceContext
+          retrieval.contextText
         )) {
           if (event.type === "text") {
             controller.enqueue(
@@ -237,7 +171,13 @@ export async function POST(
             });
 
             controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ type: "done", chatMessage })}\n\n`),
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: "done",
+                  chatMessage,
+                  citations: retrieval.citations,
+                })}\n\n`
+              ),
             );
           }
         }

@@ -16,12 +16,14 @@ interface UploadProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onUploadComplete?: (fileName: string) => void;
+  sessionId?: string | null;
 }
 
 export default function Upload({
   open,
   onOpenChange,
   onUploadComplete,
+  sessionId,
 }: UploadProps) {
   const inputId = useId();
   const [file, setFile] = useState<File | null>(null);
@@ -81,6 +83,9 @@ export default function Upload({
       const formData = new FormData();
       formData.append("file", file);
       formData.append("title", file.name);
+      if (sessionId) {
+        formData.append("sessionId", sessionId);
+      }
 
       const uploadResponse = await fetch("/api/upload", {
         method: "POST",

@@ -129,6 +129,7 @@ export function useRealtimeVoice({
 
       // 1. Get ephemeral token
       let clientSecret = "";
+      let referenceContext = "";
       try {
         const tokenRes = await fetch("/api/realtime/session", {
           method: "POST",
@@ -145,6 +146,8 @@ export function useRealtimeVoice({
 
         const data = await tokenRes.json();
         clientSecret = data.clientSecret;
+        referenceContext =
+          typeof data.referenceContext === "string" ? data.referenceContext : "";
       } catch (err) {
         fail("Token request failed", err);
         throw err;
@@ -193,7 +196,7 @@ export function useRealtimeVoice({
         const sessionUpdate = {
           type: "session.update",
           session: {
-            instructions: buildVoiceInstructions(topic),
+            instructions: buildVoiceInstructions(topic, referenceContext),
             input_audio_transcription: {
               model: "whisper-1",
             },

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { userOwnsSession } from "@/lib/session-access";
+import { retrieveRelevantChunks } from "@/lib/rag";
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -27,6 +28,15 @@ export async function POST(req: NextRequest) {
       topic = session.topic;
     }
   }
+
+  const retrieval = await retrieveRelevantChunks({
+    supabase,
+    userId: user.id,
+    query: topic || "general teaching session",
+    sessionId: sessionId || undefined,
+    matchCount: 6,
+    matchThreshold: 0.2,
+  });
 
   const response = await fetch(
     "https://api.openai.com/v1/realtime/sessions",
@@ -59,5 +69,6 @@ export async function POST(req: NextRequest) {
     clientSecret: data.client_secret?.value,
     expiresAt: data.client_secret?.expires_at,
     topic,
+    referenceContext: retrieval.contextText,
   });
 }

@@ -11,6 +11,7 @@ import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import type { Message, Concept } from "@/hooks/useSession";
 
 interface ChatProps {
+  sessionId: string;
   topic: string;
   messages: Message[];
   concepts: Concept[];
@@ -26,6 +27,7 @@ interface ChatProps {
 }
 
 export default function Chat({
+  sessionId,
   topic,
   messages,
   concepts,
@@ -194,6 +196,7 @@ export default function Chat({
       <Upload
         open={isUploadOpen}
         onOpenChange={setIsUploadOpen}
+        sessionId={sessionId}
       />
     </>
   );
@@ -352,6 +355,7 @@ export default function Chat({
                 role={msg.role}
                 content={msg.content}
                 isStreaming={msg.isStreaming}
+                citations={msg.citations}
               />
             ))}
           </AnimatePresence>

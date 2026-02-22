@@ -7,12 +7,20 @@ interface ChatMessageProps {
   role: "student" | "bloom";
   content: string;
   isStreaming?: boolean;
+  citations?: {
+    chunkId: number | null;
+    documentId: string;
+    documentTitle: string;
+    snippet: string;
+    score: number;
+  }[];
 }
 
 export default function ChatMessage({
   role,
   content,
   isStreaming,
+  citations,
 }: ChatMessageProps) {
   const isbloom = role === "bloom";
 
@@ -50,6 +58,25 @@ export default function ChatMessage({
             />
           )}
         </p>
+        {isbloom && citations && citations.length > 0 && !isStreaming && (
+          <div className="mt-3 border-t border-border/70 pt-2.5 space-y-1.5">
+            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              Sources
+            </p>
+            {citations.map((citation, index) => (
+              <div key={`${citation.documentId}-${citation.chunkId}-${index}`} className="text-xs">
+                <p className="text-muted-foreground">
+                  {index + 1}. {citation.documentTitle}
+                  {Number.isFinite(citation.chunkId) ? ` (chunk ${citation.chunkId})` : ""}
+                  {" · "}score {citation.score.toFixed(2)}
+                </p>
+                <p className="text-foreground/80">
+                  {citation.snippet}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {!isbloom && (
