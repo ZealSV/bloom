@@ -50,10 +50,10 @@ export default function SettingsPage() {
       </div>
 
       <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
-        {/* Canvas LMS Section */}
+        {/* Canvas Section */}
         <section>
           <h2 className="font-outfit text-lg font-semibold text-foreground mb-1">
-            Canvas LMS
+            Canvas
           </h2>
           <p className="text-sm text-muted-foreground mb-4">
             Connect your Canvas account to automatically import courses and
@@ -92,8 +92,7 @@ export default function SettingsPage() {
 
                 {status.lastSyncAt && (
                   <p className="text-xs text-muted-foreground">
-                    Last synced:{" "}
-                    {new Date(status.lastSyncAt).toLocaleString()}
+                    Last synced: {new Date(status.lastSyncAt).toLocaleString()}
                   </p>
                 )}
 

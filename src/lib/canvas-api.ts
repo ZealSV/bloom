@@ -1,5 +1,5 @@
 /**
- * Canvas LMS API client — per-user credentials, server-side only.
+ * Canvas API client — per-user credentials, server-side only.
  * Adapted from /repos/yucca/src/lib/canvas-api.ts
  */
 
@@ -42,7 +42,7 @@ class CanvasAPIError extends Error {
   constructor(
     message: string,
     public status: number,
-    public endpoint: string
+    public endpoint: string,
   ) {
     super(message);
     this.name = "CanvasAPIError";
@@ -60,7 +60,7 @@ function normalizeBaseUrl(baseUrl: string): string {
 async function canvasRequest<T>(
   creds: CanvasCredentials,
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<T> {
   const base = normalizeBaseUrl(creds.baseUrl);
   const url = `${base}${endpoint}`;
@@ -78,7 +78,7 @@ async function canvasRequest<T>(
     throw new CanvasAPIError(
       `Canvas API error: ${response.status} ${response.statusText}`,
       response.status,
-      endpoint
+      endpoint,
     );
   }
 
@@ -87,7 +87,7 @@ async function canvasRequest<T>(
 
 async function canvasRequestPaginated<T>(
   creds: CanvasCredentials,
-  endpoint: string
+  endpoint: string,
 ): Promise<T[]> {
   const base = normalizeBaseUrl(creds.baseUrl);
   const results: T[] = [];
@@ -106,7 +106,7 @@ async function canvasRequestPaginated<T>(
       throw new CanvasAPIError(
         `Canvas API error: ${response.status} ${response.statusText}`,
         response.status,
-        url
+        url,
       );
     }
 
@@ -127,7 +127,7 @@ async function canvasRequestPaginated<T>(
 }
 
 export async function validateCredentials(
-  creds: CanvasCredentials
+  creds: CanvasCredentials,
 ): Promise<boolean> {
   try {
     await canvasRequest(creds, "/users/self");
@@ -139,13 +139,13 @@ export async function validateCredentials(
 
 export async function listCourses(
   creds: CanvasCredentials,
-  options: { currentTermOnly?: boolean } = {}
+  options: { currentTermOnly?: boolean } = {},
 ): Promise<CanvasCourse[]> {
   const { currentTermOnly = true } = options;
 
   const courses = await canvasRequestPaginated<CanvasCourse>(
     creds,
-    "/courses?enrollment_state=active&include[]=term"
+    "/courses?enrollment_state=active&include[]=term",
   );
 
   if (!currentTermOnly) return courses;
@@ -165,17 +165,17 @@ export async function listCourses(
 
 export async function listCourseFiles(
   creds: CanvasCredentials,
-  courseId: number
+  courseId: number,
 ): Promise<CanvasFile[]> {
   return canvasRequestPaginated<CanvasFile>(
     creds,
-    `/courses/${courseId}/files`
+    `/courses/${courseId}/files`,
   );
 }
 
 export async function downloadFileContent(
   creds: CanvasCredentials,
-  downloadUrl: string
+  downloadUrl: string,
 ): Promise<Buffer> {
   const headers: HeadersInit = {};
   if (downloadUrl.includes("/api/v1/")) {

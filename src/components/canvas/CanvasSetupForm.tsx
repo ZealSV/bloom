@@ -4,18 +4,13 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  CheckCircle2,
-  ChevronDown,
-  ExternalLink,
-  Loader2,
-} from "lucide-react";
+import { CheckCircle2, ChevronDown, ExternalLink, Loader2 } from "lucide-react";
 
 interface CanvasSetupFormProps {
   onSuccess?: () => void;
   saveCredentials: (
     canvasBaseUrl: string,
-    canvasApiToken: string
+    canvasApiToken: string,
   ) => Promise<boolean>;
   loading: boolean;
   error: string | null;
@@ -111,7 +106,7 @@ export default function CanvasSetupForm({
             className="overflow-hidden"
           >
             <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground space-y-1.5">
-              <p>1. Log in to your Canvas LMS instance</p>
+              <p>1. Log in to your Canvas instance</p>
               <p>
                 2. Go to <strong>Account</strong> &rarr;{" "}
                 <strong>Settings</strong>
@@ -138,9 +133,7 @@ export default function CanvasSetupForm({
         )}
       </AnimatePresence>
 
-      {error && (
-        <p className="text-xs text-destructive">{error}</p>
-      )}
+      {error && <p className="text-xs text-destructive">{error}</p>}
 
       <Button
         type="submit"

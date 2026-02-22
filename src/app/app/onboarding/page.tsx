@@ -44,9 +44,9 @@ const ONBOARDING_BUCKET_COLORS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState<"intro" | "profile" | "canvas" | "categories" | "confirm">(
-    "intro"
-  );
+  const [step, setStep] = useState<
+    "intro" | "profile" | "canvas" | "categories" | "confirm"
+  >("intro");
   const [userType, setUserType] = useState<UserType | null>(null);
   const [canvasConnected, setCanvasConnected] = useState(false);
   const canvas = useCanvasSync();
@@ -56,20 +56,19 @@ export default function OnboardingPage() {
   const [setupRunId, setSetupRunId] = useState(0);
   const [setupError, setSetupError] = useState<string | null>(null);
   const [setupMessage, setSetupMessage] = useState(
-    "Setting up your workspace..."
+    "Setting up your workspace...",
   );
   const setupStartedRef = useRef(false);
   const categoryLabelPlural = userType === "student" ? "Classes" : "Categories";
   const categoryLabelPluralLower =
     userType === "student" ? "classes" : "categories";
-  const categoryLabelSingular =
-    userType === "student" ? "class" : "category";
+  const categoryLabelSingular = userType === "student" ? "class" : "category";
 
   const addCategory = () => {
     const value = categoryInput.trim();
     if (!value) return;
     const alreadyExists = categories.some(
-      (category) => category.toLowerCase() === value.toLowerCase()
+      (category) => category.toLowerCase() === value.toLowerCase(),
     );
     if (alreadyExists) {
       setCategoryInput("");
@@ -81,7 +80,7 @@ export default function OnboardingPage() {
 
   const removeCategory = (categoryToRemove: string) => {
     setCategories((prev) =>
-      prev.filter((category) => category !== categoryToRemove)
+      prev.filter((category) => category !== categoryToRemove),
     );
   };
 
@@ -122,7 +121,7 @@ export default function OnboardingPage() {
         }
 
         const newCategories = categories.filter(
-          (category) => !existingNames.has(category.trim().toLowerCase())
+          (category) => !existingNames.has(category.trim().toLowerCase()),
         );
 
         await Promise.all(
@@ -137,8 +136,8 @@ export default function OnboardingPage() {
                     index % ONBOARDING_BUCKET_COLORS.length
                   ],
               }),
-            })
-          )
+            }),
+          ),
         );
       } catch {
         // Continue to app even if setup partially fails.
@@ -156,7 +155,9 @@ export default function OnboardingPage() {
 
       try {
         setSetupMessage("Finalizing your onboarding...");
-        const onboardingRes = await fetch("/api/onboarding", { method: "PATCH" });
+        const onboardingRes = await fetch("/api/onboarding", {
+          method: "PATCH",
+        });
         if (!onboardingRes.ok) {
           throw new Error("Unable to complete onboarding.");
         }
@@ -173,7 +174,7 @@ export default function OnboardingPage() {
       const minDisplayTime = 1400;
       if (elapsed < minDisplayTime) {
         await new Promise((resolve) =>
-          window.setTimeout(resolve, minDisplayTime - elapsed)
+          window.setTimeout(resolve, minDisplayTime - elapsed),
         );
       }
 
@@ -268,7 +269,10 @@ export default function OnboardingPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.35, delay: 0.4 }}
               >
-                <Button className="h-10 px-5" onClick={() => setStep("profile")}>
+                <Button
+                  className="h-10 px-5"
+                  onClick={() => setStep("profile")}
+                >
                   Continue
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -354,7 +358,9 @@ export default function OnboardingPage() {
                 <Button
                   className="h-10 px-5"
                   disabled={!userType}
-                  onClick={() => setStep(userType === "student" ? "canvas" : "categories")}
+                  onClick={() =>
+                    setStep(userType === "student" ? "canvas" : "categories")
+                  }
                 >
                   Continue
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -386,7 +392,7 @@ export default function OnboardingPage() {
               </motion.div>
 
               <h1 className="font-outfit text-2xl font-semibold text-foreground">
-                Connect Canvas LMS
+                Connect Canvas
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 Import your courses and files automatically.
@@ -511,7 +517,9 @@ export default function OnboardingPage() {
                 <Button
                   variant="ghost"
                   className="h-10 px-4"
-                  onClick={() => setStep(userType === "student" ? "canvas" : "profile")}
+                  onClick={() =>
+                    setStep(userType === "student" ? "canvas" : "profile")
+                  }
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back
