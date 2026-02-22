@@ -8,10 +8,10 @@ import { Input } from "@/components/ui/input";
 import Upload from "@/components/Upload";
 import {
   ArrowRight,
-  Sparkles,
   ArrowUpRight,
   FileUp,
   FileText,
+  Flower,
   X,
 } from "lucide-react";
 
@@ -86,7 +86,7 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
                 className="h-12 pl-12 pr-4 ring-2 ring-transparent focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-background shadow-lg transition-all duration-300"
                 autoFocus
               />
-              <Sparkles className="absolute left-4 w-5 h-5 text-emerald-600 pointer-events-none" />
+              <Flower className="absolute left-4 w-5 h-5 text-emerald-600 pointer-events-none" />
             </div>
           </div>
 
