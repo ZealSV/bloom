@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 import {
@@ -15,6 +16,8 @@ interface LiveVoiceModeProps {
   topic: string;
   onExit: (transcript: TranscriptMessage[]) => void;
 }
+
+const MIN_STATUS_DISPLAY_MS = 1000;
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60)
@@ -39,57 +42,38 @@ function statusLabel(status: RealtimeStatus): string {
   }
 }
 
-const orbVariants = {
+const mascotByStatus: Record<RealtimeStatus, string> = {
+  idle: "/bloom_default.png",
+  connecting: "/bloom_awestruck.png",
+  listening: "/bloom_curious.png",
+  thinking: "/bloom_zen.png",
+  speaking: "/bloom_happy.png",
+};
+
+const mascotVariants = {
   connecting: {
-    scale: [0.85, 1, 0.85],
-    opacity: [0.6, 1, 0.6],
+    scale: [0.9, 1.02, 0.9],
+    rotate: [-2, 2, -2],
     transition: { duration: 2, repeat: Infinity, ease: "easeInOut" },
   },
   listening: {
     scale: [1, 1.06, 1],
-    opacity: [0.9, 1, 0.9],
+    rotate: [0, 1.5, 0],
     transition: { duration: 2.5, repeat: Infinity, ease: "easeInOut" },
   },
   thinking: {
     scale: [1, 1.03, 1],
-    opacity: [0.6, 1, 0.6],
+    rotate: [0, -1.2, 0],
     transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" },
   },
   speaking: {
-    scale: [1, 1.18, 0.95, 1.12, 1],
-    opacity: [0.9, 1, 0.85, 1, 0.9],
+    scale: [1, 1.1, 0.96, 1.08, 1],
+    rotate: [0, 2, -1, 2, 0],
     transition: { duration: 0.9, repeat: Infinity, ease: "easeInOut" },
   },
   idle: {
     scale: 1,
-    opacity: 0.5,
-  },
-};
-
-const glowVariants = {
-  connecting: {
-    scale: [1, 1.3, 1],
-    opacity: [0, 0.15, 0],
-    transition: { duration: 2, repeat: Infinity, ease: "easeInOut" },
-  },
-  listening: {
-    scale: [1, 1.2, 1],
-    opacity: [0, 0.1, 0],
-    transition: { duration: 2.5, repeat: Infinity, ease: "easeInOut" },
-  },
-  thinking: {
-    scale: [1, 1.15, 1],
-    opacity: [0, 0.08, 0],
-    transition: { duration: 1.5, repeat: Infinity, ease: "easeInOut" },
-  },
-  speaking: {
-    scale: [1, 1.5, 1.1, 1.4, 1],
-    opacity: [0, 0.25, 0.05, 0.2, 0],
-    transition: { duration: 0.9, repeat: Infinity, ease: "easeInOut" },
-  },
-  idle: {
-    scale: 1,
-    opacity: 0,
+    rotate: 0,
   },
 };
 
@@ -101,6 +85,10 @@ export default function LiveVoiceMode({
   // Ref indirection to break circular dependency:
   // handleExit needs disconnect (from hook), hook needs onBye (handleExit)
   const exitRef = useRef<() => void>();
+  const pendingStatusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+  const lastStatusSwapRef = useRef<number>(Date.now());
 
   const { status, connect, disconnect, transcript, error, elapsedSeconds } =
     useRealtimeVoice({
@@ -108,12 +96,51 @@ export default function LiveVoiceMode({
       topic,
       onBye: () => exitRef.current?.(),
     });
+  const [displayStatus, setDisplayStatus] = useState<RealtimeStatus>("idle");
 
   // Keep transcript ref current so handleExit captures latest
   const transcriptRef = useRef<TranscriptMessage[]>([]);
   useEffect(() => {
     transcriptRef.current = transcript;
   }, [transcript]);
+
+  useEffect(() => {
+    if (status === displayStatus) return;
+
+    const applyStatus = () => {
+      setDisplayStatus(status);
+      lastStatusSwapRef.current = Date.now();
+      pendingStatusTimeoutRef.current = null;
+    };
+
+    const elapsed = Date.now() - lastStatusSwapRef.current;
+    if (elapsed >= MIN_STATUS_DISPLAY_MS) {
+      if (pendingStatusTimeoutRef.current) {
+        clearTimeout(pendingStatusTimeoutRef.current);
+        pendingStatusTimeoutRef.current = null;
+      }
+      applyStatus();
+      return;
+    }
+
+    if (pendingStatusTimeoutRef.current) {
+      clearTimeout(pendingStatusTimeoutRef.current);
+      pendingStatusTimeoutRef.current = null;
+    }
+
+    pendingStatusTimeoutRef.current = setTimeout(
+      applyStatus,
+      MIN_STATUS_DISPLAY_MS - elapsed
+    );
+  }, [status, displayStatus]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingStatusTimeoutRef.current) {
+        clearTimeout(pendingStatusTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleExit = useCallback(() => {
     disconnect();
@@ -133,7 +160,7 @@ export default function LiveVoiceMode({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const animateKey = status === "idle" ? "idle" : status;
+  const animateKey = displayStatus === "idle" ? "idle" : displayStatus;
 
   return (
     <AnimatePresence>
@@ -177,33 +204,46 @@ export default function LiveVoiceMode({
           </div>
         </div>
 
-        {/* Center: Orb */}
+        {/* Center: Mascot */}
         <div className="flex-1 flex flex-col items-center justify-center pb-10">
           <div className="relative flex items-center justify-center">
-            {/* Glow layer */}
+            {/* Status mascot */}
             <motion.div
-              className="absolute w-40 h-40 rounded-full bg-primary/30 blur-2xl"
-              variants={glowVariants}
+              className="relative h-52 w-52"
+              variants={mascotVariants}
               animate={animateKey}
-            />
-
-            {/* Main orb */}
-            <motion.div
-              className="relative w-36 h-36 rounded-full bg-gradient-to-br from-primary/80 to-primary/40 border border-primary/20 shadow-lg shadow-primary/10"
-              variants={orbVariants}
-              animate={animateKey}
-            />
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={displayStatus}
+                  className="absolute inset-0"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.05 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Image
+                    src={mascotByStatus[displayStatus]}
+                    alt={`bloom ${displayStatus}`}
+                    fill
+                    sizes="208px"
+                    priority
+                    className="object-contain"
+                  />
+                </motion.div>
+              </AnimatePresence>
+            </motion.div>
           </div>
 
           {/* Status text */}
           <motion.p
             className="mt-8 text-sm text-muted-foreground"
-            key={status}
+            key={displayStatus}
             initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2 }}
           >
-            {statusLabel(status)}
+            {statusLabel(displayStatus)}
           </motion.p>
 
           {/* Error */}
