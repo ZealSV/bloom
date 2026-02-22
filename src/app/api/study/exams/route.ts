@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { sourceType = "all", sourceIds } = await req.json();
+  const { sourceType = "all", sourceIds, subjectId } = await req.json();
 
   // Aggregate knowledge context
   const ctxRes = await fetch(new URL("/api/study/context", req.url), {
@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
         questions: result.questions,
         source_type: sourceType,
         source_ids: sourceIds || [],
+        ...(subjectId ? { subject_id: subjectId } : {}),
       })
       .select()
       .single();
@@ -95,7 +96,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -103,10 +104,18 @@ export async function GET() {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabase
+  const subjectId = req.nextUrl.searchParams.get("subject_id");
+
+  let query = supabase
     .from("practice_exams")
     .select("*")
     .order("created_at", { ascending: false });
+
+  if (subjectId) {
+    query = query.eq("subject_id", subjectId);
+  }
+
+  const { data, error } = await query;
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -9,10 +9,13 @@ export function useExam() {
   const [attempts, setAttempts] = useState<ExamAttempt[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchExams = useCallback(async () => {
+  const fetchExams = useCallback(async (subjectId?: string) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/study/exams");
+      const url = subjectId
+        ? `/api/study/exams?subject_id=${subjectId}`
+        : "/api/study/exams";
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setExams(data);

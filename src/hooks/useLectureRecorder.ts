@@ -11,10 +11,11 @@ export type RecorderStatus =
 
 interface UseLectureRecorderOptions {
   chunkIntervalMs?: number;
+  subjectId?: string;
 }
 
 export function useLectureRecorder(opts: UseLectureRecorderOptions = {}) {
-  const { chunkIntervalMs = 60_000 } = opts;
+  const { chunkIntervalMs = 60_000, subjectId } = opts;
 
   const [status, setStatus] = useState<RecorderStatus>("idle");
   const [lectureId, setLectureId] = useState<string | null>(null);
@@ -86,7 +87,10 @@ export function useLectureRecorder(opts: UseLectureRecorderOptions = {}) {
         const res = await fetch("/api/lectures", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: title || "Untitled Lecture" }),
+          body: JSON.stringify({
+            title: title || "Untitled Lecture",
+            ...(subjectId ? { subject_id: subjectId } : {}),
+          }),
         });
         if (!res.ok) throw new Error("Failed to create lecture");
         const lecture = await res.json();

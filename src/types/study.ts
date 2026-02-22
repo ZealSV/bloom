@@ -1,3 +1,16 @@
+// ---- Subject types ----
+
+export interface Subject {
+  id: string;
+  user_id: string;
+  name: string;
+  color: string | null;
+  created_at: string;
+  lecture_count?: number;
+  deck_count?: number;
+  exam_count?: number;
+}
+
 // ---- Lecture types ----
 
 export interface LectureSummary {
@@ -21,6 +34,7 @@ export interface Lecture {
   summary: LectureSummary | null;
   status: "recording" | "processing" | "ready" | "failed";
   duration_seconds: number;
+  subject_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -48,6 +62,7 @@ export interface FlashcardDeck {
   source_type: SourceType;
   source_ids: string[];
   card_count: number;
+  subject_id: string | null;
   created_at: string;
 }
 
@@ -71,6 +86,7 @@ export interface PracticeExam {
   questions: ExamQuestion[];
   source_type: SourceType;
   source_ids: string[];
+  subject_id: string | null;
   created_at: string;
 }
 

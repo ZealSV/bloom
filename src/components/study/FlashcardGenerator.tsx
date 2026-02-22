@@ -8,10 +8,12 @@ import type { SourceType } from "@/types/study";
 
 interface FlashcardGeneratorProps {
   onGenerated: (deckId: string) => void;
+  subjectId?: string;
 }
 
 export default function FlashcardGenerator({
   onGenerated,
+  subjectId,
 }: FlashcardGeneratorProps) {
   const [selected, setSelected] = useState<{
     sourceType: SourceType;
@@ -31,6 +33,7 @@ export default function FlashcardGenerator({
         body: JSON.stringify({
           sourceType: selected.sourceType,
           sourceIds: selected.sourceIds,
+          ...(subjectId ? { subjectId } : {}),
         }),
       });
 

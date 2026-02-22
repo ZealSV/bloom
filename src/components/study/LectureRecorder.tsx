@@ -11,6 +11,7 @@ import { useLectureRecorder } from "@/hooks/useLectureRecorder";
 interface LectureRecorderProps {
   onComplete?: (lectureId: string) => void;
   onCancel?: () => void;
+  subjectId?: string;
 }
 
 function formatTime(seconds: number): string {
@@ -19,7 +20,7 @@ function formatTime(seconds: number): string {
   return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
-export default function LectureRecorder({ onComplete }: LectureRecorderProps) {
+export default function LectureRecorder({ onComplete, subjectId }: LectureRecorderProps) {
   const [title, setTitle] = useState("");
   const transcriptEndRef = useRef<HTMLDivElement>(null);
 
@@ -34,7 +35,7 @@ export default function LectureRecorder({ onComplete }: LectureRecorderProps) {
     pauseRecording,
     resumeRecording,
     stopRecording,
-  } = useLectureRecorder({ chunkIntervalMs: 60_000 });
+  } = useLectureRecorder({ chunkIntervalMs: 60_000, subjectId });
 
   useEffect(() => {
     transcriptEndRef.current?.scrollIntoView({ behavior: "smooth" });

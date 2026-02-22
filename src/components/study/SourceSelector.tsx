@@ -15,11 +15,13 @@ interface Source {
 interface SourceSelectorProps {
   onSelect: (sourceType: SourceType, sourceIds: string[]) => void;
   selected: { sourceType: SourceType; sourceIds: string[] };
+  subjectId?: string;
 }
 
 export default function SourceSelector({
   onSelect,
   selected,
+  subjectId,
 }: SourceSelectorProps) {
   const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,12 +32,17 @@ export default function SourceSelector({
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
 
+      let lecturesQuery = supabase
+        .from("lectures")
+        .select("id, title")
+        .eq("status", "ready")
+        .order("created_at", { ascending: false });
+      if (subjectId) {
+        lecturesQuery = lecturesQuery.eq("subject_id", subjectId);
+      }
+
       const [lecturesRes, documentsRes, sessionsRes] = await Promise.all([
-        supabase
-          .from("lectures")
-          .select("id, title")
-          .eq("status", "ready")
-          .order("created_at", { ascending: false }),
+        lecturesQuery,
         supabase
           .from("documents" as any)
           .select("id, title")

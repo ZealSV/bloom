@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title } = await req.json();
+  const { title, subject_id } = await req.json();
 
   const { data, error } = await supabase
     .from("lectures")
@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       title: title || "Untitled Lecture",
       status: "recording",
+      ...(subject_id ? { subject_id } : {}),
     })
     .select()
     .single();
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(data, { status: 201 });
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -34,12 +35,20 @@ export async function GET() {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabase
+  const subjectId = req.nextUrl.searchParams.get("subject_id");
+
+  let query = supabase
     .from("lectures")
     .select(
-      "id, title, status, duration_seconds, summary, created_at, updated_at"
+      "id, title, status, duration_seconds, summary, subject_id, created_at, updated_at"
     )
     .order("created_at", { ascending: false });
+
+  if (subjectId) {
+    query = query.eq("subject_id", subjectId);
+  }
+
+  const { data, error } = await query;
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });

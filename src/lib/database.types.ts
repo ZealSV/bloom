@@ -178,6 +178,29 @@ export type Database = {
           }
         ];
       };
+      subjects: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          color: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          color?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          color?: string | null;
+        };
+        Relationships: [];
+      };
       lectures: {
         Row: {
           id: string;
@@ -187,6 +210,7 @@ export type Database = {
           summary: Json | null;
           status: string;
           duration_seconds: number;
+          subject_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -198,6 +222,7 @@ export type Database = {
           summary?: Json | null;
           status?: string;
           duration_seconds?: number;
+          subject_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -209,9 +234,18 @@ export type Database = {
           summary?: Json | null;
           status?: string;
           duration_seconds?: number;
+          subject_id?: string | null;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "lectures_subject_id_fkey";
+            columns: ["subject_id"];
+            isOneToOne: false;
+            referencedRelation: "subjects";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       flashcard_decks: {
         Row: {
@@ -221,6 +255,7 @@ export type Database = {
           source_type: string;
           source_ids: string[];
           card_count: number;
+          subject_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -230,6 +265,7 @@ export type Database = {
           source_type?: string;
           source_ids?: string[];
           card_count?: number;
+          subject_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -239,8 +275,17 @@ export type Database = {
           source_type?: string;
           source_ids?: string[];
           card_count?: number;
+          subject_id?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "flashcard_decks_subject_id_fkey";
+            columns: ["subject_id"];
+            isOneToOne: false;
+            referencedRelation: "subjects";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       flashcards: {
         Row: {
@@ -293,6 +338,7 @@ export type Database = {
           questions: Json;
           source_type: string;
           source_ids: string[];
+          subject_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -302,6 +348,7 @@ export type Database = {
           questions?: Json;
           source_type?: string;
           source_ids?: string[];
+          subject_id?: string | null;
           created_at?: string;
         };
         Update: {
@@ -311,8 +358,17 @@ export type Database = {
           questions?: Json;
           source_type?: string;
           source_ids?: string[];
+          subject_id?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "practice_exams_subject_id_fkey";
+            columns: ["subject_id"];
+            isOneToOne: false;
+            referencedRelation: "subjects";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       exam_attempts: {
         Row: {

@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { sourceType = "all", sourceIds } = await req.json();
+  const { sourceType = "all", sourceIds, subjectId } = await req.json();
 
   // Aggregate knowledge context
   const ctxRes = await fetch(new URL("/api/study/context", req.url), {
@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
         source_type: sourceType,
         source_ids: sourceIds || [],
         card_count: result.cards.length,
+        ...(subjectId ? { subject_id: subjectId } : {}),
       })
       .select()
       .single();
@@ -122,10 +123,18 @@ export async function GET(req: NextRequest) {
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data, error } = await supabase
+  const subjectId = req.nextUrl.searchParams.get("subject_id");
+
+  let query = supabase
     .from("flashcard_decks")
     .select("*")
     .order("created_at", { ascending: false });
+
+  if (subjectId) {
+    query = query.eq("subject_id", subjectId);
+  }
+
+  const { data, error } = await query;
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });

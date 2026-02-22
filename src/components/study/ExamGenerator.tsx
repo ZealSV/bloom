@@ -8,9 +8,10 @@ import type { SourceType } from "@/types/study";
 
 interface ExamGeneratorProps {
   onGenerated: (examId: string) => void;
+  subjectId?: string;
 }
 
-export default function ExamGenerator({ onGenerated }: ExamGeneratorProps) {
+export default function ExamGenerator({ onGenerated, subjectId }: ExamGeneratorProps) {
   const [selected, setSelected] = useState<{
     sourceType: SourceType;
     sourceIds: string[];
@@ -29,6 +30,7 @@ export default function ExamGenerator({ onGenerated }: ExamGeneratorProps) {
         body: JSON.stringify({
           sourceType: selected.sourceType,
           sourceIds: selected.sourceIds,
+          ...(subjectId ? { subjectId } : {}),
         }),
       });
 

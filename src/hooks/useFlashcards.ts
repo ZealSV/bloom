@@ -9,10 +9,13 @@ export function useFlashcards() {
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchDecks = useCallback(async () => {
+  const fetchDecks = useCallback(async (subjectId?: string) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/study/flashcards");
+      const url = subjectId
+        ? `/api/study/flashcards?subject_id=${subjectId}`
+        : "/api/study/flashcards";
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setDecks(data);
