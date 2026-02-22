@@ -31,7 +31,9 @@ export default function Layout({
 }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : "?";
+  const email = typeof user?.email === "string" ? user.email : "";
+  const displayName = email.includes("@") ? email.split("@")[0] : email;
+  const initials = displayName ? displayName.slice(0, 2).toUpperCase() : "?";
 
   return (
     <div className="h-screen flex flex-col bg-background">
@@ -75,7 +77,7 @@ export default function Layout({
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-xs text-muted-foreground hidden sm:inline max-w-[120px] truncate">
-                    {user.email}
+                    {displayName || user.email}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
