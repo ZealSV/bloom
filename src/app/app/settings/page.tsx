@@ -35,7 +35,7 @@ export default function SettingsPage() {
 
   const [showCoursePicker, setShowCoursePicker] = useState(false);
   const [selectedCourseIds, setSelectedCourseIds] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export default function SettingsPage() {
         {/* Canvas Section */}
         <section>
           <h2 className="font-outfit text-lg font-semibold text-foreground mb-1">
-            Canvas LMS
+            Canvas
           </h2>
           <p className="text-sm text-muted-foreground mb-4">
             Connect your Canvas account to import courses and files into your
@@ -142,8 +142,7 @@ export default function SettingsPage() {
 
                 {status.lastSyncAt && (
                   <p className="text-xs text-muted-foreground">
-                    Last synced:{" "}
-                    {new Date(status.lastSyncAt).toLocaleString()}
+                    Last synced: {new Date(status.lastSyncAt).toLocaleString()}
                   </p>
                 )}
 
