@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ClipboardCheck, Flower, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SourceSelector from "./SourceSelector";
+import { useGeneration } from "@/contexts/GenerationContext";
 import type { SourceType } from "@/types/study";
 
 interface ExamGeneratorProps {
@@ -16,36 +17,19 @@ export default function ExamGenerator({ onGenerated, subjectId }: ExamGeneratorP
     sourceType: SourceType;
     sourceIds: string[];
   }>({ sourceType: "all", sourceIds: [] });
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleGenerate = async () => {
-    setGenerating(true);
-    setError(null);
+  const { generateExam, isGenerating } = useGeneration();
+  const generating = isGenerating("exams", subjectId);
 
-    try {
-      const res = await fetch("/api/study/exams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceType: selected.sourceType,
-          sourceIds: selected.sourceIds,
-          ...(subjectId ? { subjectId } : {}),
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to generate exam");
-      }
-
-      const { exam } = await res.json();
-      onGenerated(exam.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setGenerating(false);
-    }
+  const handleGenerate = () => {
+    generateExam(
+      {
+        sourceType: selected.sourceType,
+        sourceIds: selected.sourceIds,
+        subjectId,
+      },
+      onGenerated
+    );
   };
 
   return (
@@ -63,12 +47,6 @@ export default function ExamGenerator({ onGenerated, subjectId }: ExamGeneratorP
       </p>
 
       <SourceSelector onSelect={(st, ids) => setSelected({ sourceType: st, sourceIds: ids })} selected={selected} subjectId={subjectId} />
-
-      {error && (
-        <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-          {error}
-        </p>
-      )}
 
       <Button
         onClick={handleGenerate}

@@ -19,7 +19,6 @@ import {
   CheckCircle2,
   X,
   Presentation,
-  Layers,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -42,6 +41,7 @@ import SourceSelector from "@/components/study/SourceSelector";
 import DelelteConfirm from "@/components/delelteConfirm";
 import { useFlashcards } from "@/hooks/useFlashcards";
 import { useExam } from "@/hooks/useExam";
+import { useGeneration } from "@/contexts/GenerationContext";
 import type {
   Lecture,
   FlashcardDeck as DeckType,
@@ -114,7 +114,6 @@ export default function SubjectDetailPage({
   const [slides, setSlides] = useState<Slide[]>([]);
   const [slidesLoading, setSlidesLoading] = useState(false);
   const [slidesError, setSlidesError] = useState<string | null>(null);
-  const [slidesGenerating, setSlidesGenerating] = useState(false);
   const [slideCount, setSlideCount] = useState(8);
   const [deckTitle, setDeckTitle] = useState("");
   const [slideTemplate, setSlideTemplate] = useState<
@@ -162,6 +161,9 @@ export default function SubjectDetailPage({
     fetchExam,
     submitExam,
   } = useExam();
+
+  const { generateSlides, isGenerating, registerRefresh } = useGeneration();
+  const slidesGenerating = isGenerating("slides", subjectId);
 
   const fetchLectures = useCallback(async () => {
     const res = await fetch(`/api/lectures?subject_id=${subjectId}`);
@@ -294,27 +296,6 @@ export default function SubjectDetailPage({
         );
       }
 
-      const documentId = (uploadResult as { documentId?: string })?.documentId;
-      if (typeof documentId !== "string" || !documentId) {
-        throw new Error("Upload succeeded but no documentId was returned.");
-      }
-
-      const ingestResponse = await fetch("/api/ingest", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ documentId }),
-      });
-
-      const ingestResult = await readApiResponse(ingestResponse);
-      if (!ingestResponse.ok) {
-        throw new Error(
-          (ingestResult as { error?: string })?.error ||
-            `Ingest failed (${ingestResponse.status})`
-        );
-      }
-
       setUploadSuccess(true);
       await fetchDocuments();
     } catch (error) {
@@ -380,6 +361,15 @@ export default function SubjectDetailPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjectId]);
 
+  // Register refresh callbacks so background generations can update lists
+  useEffect(() => {
+    return registerRefresh(subjectId, {
+      flashcards: () => fetchDecks(subjectId),
+      exams: () => fetchExams(subjectId),
+      slides: () => fetchSlideDecks(),
+    });
+  }, [subjectId, registerRefresh, fetchDecks, fetchExams, fetchSlideDecks]);
+
   const handleLectureCreated = async (lectureId: string) => {
     await fetchLectures();
     const lecture = await fetchLecture(lectureId);
@@ -397,48 +387,32 @@ export default function SubjectDetailPage({
     }
   };
 
-  const handleGenerateSlides = async () => {
-    setSlidesGenerating(true);
+  const handleGenerateSlides = () => {
     setSlidesError(null);
-    try {
-      const res = await fetch("/api/study/slides", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          subjectId,
-          title: deckTitle.trim() || subject?.name || "Slide Deck",
-          slideCount,
-          sourceType: slideSources.sourceType,
-          sourceIds: slideSources.sourceIds,
-          template: slideTemplate,
-          generateImages,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to generate slides");
-      }
-
-      const data = await res.json();
-      await fetchSlideDecks();
-      if (data?.deckId) {
+    generateSlides(
+      {
+        subjectId,
+        title: deckTitle.trim() || subject?.name || "Slide Deck",
+        slideCount,
+        sourceType: slideSources.sourceType,
+        sourceIds: slideSources.sourceIds,
+        template: slideTemplate,
+        generateImages,
+      },
+      async (deckId, count) => {
+        await fetchSlideDecks();
         setSelectedDeck({
-          id: data.deckId,
+          id: deckId,
           user_id: "",
           subject_id: subjectId,
           title: deckTitle.trim() || subject?.name || "Slide Deck",
-          slide_count: data.slideCount || slideCount,
+          slide_count: count,
           template: slideTemplate,
           created_at: new Date().toISOString(),
         });
-        await fetchSlides(data.deckId);
+        await fetchSlides(deckId);
       }
-    } catch (err) {
-      setSlidesError(err instanceof Error ? err.message : "Failed to generate slides");
-    } finally {
-      setSlidesGenerating(false);
-    }
+    );
   };
 
   const handleStartExport = () => {

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BookOpen, Flower, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import SourceSelector from "./SourceSelector";
+import { useGeneration } from "@/contexts/GenerationContext";
 import type { SourceType } from "@/types/study";
 
 interface FlashcardGeneratorProps {
@@ -19,36 +20,19 @@ export default function FlashcardGenerator({
     sourceType: SourceType;
     sourceIds: string[];
   }>({ sourceType: "all", sourceIds: [] });
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleGenerate = async () => {
-    setGenerating(true);
-    setError(null);
+  const { generateFlashcards, isGenerating } = useGeneration();
+  const generating = isGenerating("flashcards", subjectId);
 
-    try {
-      const res = await fetch("/api/study/flashcards", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceType: selected.sourceType,
-          sourceIds: selected.sourceIds,
-          ...(subjectId ? { subjectId } : {}),
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to generate flashcards");
-      }
-
-      const { deck } = await res.json();
-      onGenerated(deck.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setGenerating(false);
-    }
+  const handleGenerate = () => {
+    generateFlashcards(
+      {
+        sourceType: selected.sourceType,
+        sourceIds: selected.sourceIds,
+        subjectId,
+      },
+      onGenerated
+    );
   };
 
   return (
@@ -66,12 +50,6 @@ export default function FlashcardGenerator({
       </p>
 
       <SourceSelector onSelect={(st, ids) => setSelected({ sourceType: st, sourceIds: ids })} selected={selected} subjectId={subjectId} />
-
-      {error && (
-        <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
-          {error}
-        </p>
-      )}
 
       <Button
         onClick={handleGenerate}
