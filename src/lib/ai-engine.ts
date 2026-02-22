@@ -42,6 +42,7 @@ RULES:
 - Ask only ONE question at a time. Don't overwhelm the teacher.
 - Match the complexity level to the topic — be more confused for hard topics
 - Reference earlier parts of the conversation when relevant
+- If reference material is provided, prioritize it over your general knowledge. If it conflicts with your general knowledge, trust the reference.
 
 STRUCTURED OUTPUT:
 After your conversational response, output a JSON block (fenced with \`\`\`json) containing your analysis:
@@ -80,7 +81,7 @@ MASTERY SCORING RUBRIC (be strict — do NOT inflate scores):
 - 80-100: Deep mastery — teacher explained edge cases, caught your wrong inferences, connected to related concepts
 
 CRITICAL SCORING RULES:
-- A first-time explanation should NEVER score above 50, no matter how good — they haven't been tested yet
+- A first-time explanation should NEVER score above 70, no matter how good — they haven't been tested yet
 - Mastery must be EARNED through multiple exchanges, not given for a single explanation
 - Only increase scores when the teacher successfully handles your probing questions or wrong inferences
 - If the teacher agrees with your wrong inference, DROP the score by at least 15 points
@@ -231,12 +232,21 @@ export type ChatMessage = {
 export async function* streambloomResponse(
   history: ChatMessage[],
   userMessage: string,
+  referenceContext?: string,
 ) {
   const stream = await openai.chat.completions.create({
     model: "gpt-4o",
     max_tokens: 1024,
     messages: [
       { role: "system", content: bloom_SYSTEM_PROMPT },
+      ...(referenceContext
+        ? [
+            {
+              role: "system" as const,
+              content: `REFERENCE MATERIAL (prioritize this over general knowledge):\n${referenceContext}`,
+            },
+          ]
+        : []),
       ...history,
       { role: "user", content: userMessage },
     ],

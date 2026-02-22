@@ -6,7 +6,14 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Upload from "@/components/Upload";
-import { ArrowRight, Sparkles, ArrowUpRight, FileUp } from "lucide-react";
+import {
+  ArrowRight,
+  Sparkles,
+  ArrowUpRight,
+  FileUp,
+  FileText,
+  X,
+} from "lucide-react";
 
 const SUGGESTED_TOPICS = [
   { topic: "How photosynthesis works", subject: "Biology" },
@@ -27,6 +34,7 @@ interface TopicPickerProps {
 export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
   const [topic, setTopic] = useState("");
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +90,25 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
             </div>
           </div>
 
+          {uploadedFileName && (
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2">
+              <div className="min-w-0 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-emerald-600 shrink-0" />
+                <p className="text-xs text-foreground truncate">
+                  '{uploadedFileName}' has been uploaded!
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUploadedFileName(null)}
+                className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground"
+                title="Remove file"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
           <motion.div
             whileHover={{ y: -2 }}
             whileTap={{ y: 0 }}
@@ -110,7 +137,11 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
           </button>
         </div>
 
-        <Upload open={isUploadOpen} onOpenChange={setIsUploadOpen} />
+        <Upload
+          open={isUploadOpen}
+          onOpenChange={setIsUploadOpen}
+          onUploadComplete={setUploadedFileName}
+        />
 
         <div className="mt-8">
           <p className="text-xs text-muted-foreground mb-3 text-center">
