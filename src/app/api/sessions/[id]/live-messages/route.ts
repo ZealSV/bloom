@@ -5,6 +5,7 @@ import {
   parsebloomResponse,
   type bloomAnalysis,
 } from "@/lib/ai-engine";
+import { userOwnsSession } from "@/lib/session-access";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -23,6 +24,10 @@ export async function POST(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id: sessionId } = await params;
+  const ownsSession = await userOwnsSession(supabase, sessionId, user.id);
+  if (!ownsSession) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
   const { messages } = (await req.json()) as {
     messages: TranscriptMessage[];
   };

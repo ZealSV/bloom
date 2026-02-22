@@ -87,6 +87,7 @@ export default function DashboardPage() {
       const { data: sessionsData } = await supabase
         .from("sessions")
         .select("*")
+        .eq("user_id", userData.user.id)
         .order("updated_at", { ascending: false });
 
       const rows = (sessionsData as SessionRow[] | null) || [];

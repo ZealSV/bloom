@@ -234,6 +234,22 @@ export async function* streambloomResponse(
   userMessage: string,
   referenceContext?: string,
 ) {
+  const trimmedUserMessage = userMessage.trim();
+  const lastHistoryMessage = history[history.length - 1];
+  const shouldAppendUserMessage =
+    !!trimmedUserMessage &&
+    !(
+      lastHistoryMessage?.role === "user" &&
+      lastHistoryMessage.content.trim() === trimmedUserMessage
+    );
+
+  const modelMessages: ChatMessage[] = [
+    ...history,
+    ...(shouldAppendUserMessage
+      ? [{ role: "user" as const, content: trimmedUserMessage }]
+      : []),
+  ];
+
   const stream = await openai.chat.completions.create({
     model: "gpt-4o",
     max_tokens: 1024,
@@ -247,8 +263,7 @@ export async function* streambloomResponse(
             },
           ]
         : []),
-      ...history,
-      { role: "user", content: userMessage },
+      ...modelMessages,
     ],
     stream: true,
   });
@@ -270,8 +285,9 @@ export async function* streambloomResponse(
   if (!finalAnalysis) {
     try {
       const transcript = [
-        ...history.map((m) => `${m.role === "user" ? "Teacher" : "bloom"}: ${m.content}`),
-        `Teacher: ${userMessage}`,
+        ...modelMessages.map((m) =>
+          `${m.role === "user" ? "Teacher" : "bloom"}: ${m.content}`
+        ),
         `bloom: ${chatMessage}`,
       ].join("\n");
 

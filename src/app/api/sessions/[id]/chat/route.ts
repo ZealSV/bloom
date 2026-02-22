@@ -6,6 +6,7 @@ import {
   type bloomAnalysis,
 } from "@/lib/ai-engine";
 import OpenAI from "openai";
+import { userOwnsSession } from "@/lib/session-access";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -19,6 +20,10 @@ export async function POST(
 
   const { id: sessionId } = await params;
   const { message } = await req.json();
+  const ownsSession = await userOwnsSession(supabase, sessionId, user.id);
+  if (!ownsSession) {
+    return new Response("Session not found", { status: 404 });
+  }
 
   if (!message) {
     return new Response("Message is required", { status: 400 });
