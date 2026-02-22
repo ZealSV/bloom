@@ -90,6 +90,31 @@ export interface PracticeExam {
   created_at: string;
 }
 
+// ---- Slide types ----
+
+export interface Slide {
+  id: string;
+  deck_id: string;
+  slide_index: number;
+  title: string;
+  bullets: string[];
+  speaker_notes: string;
+  image_url?: string | null;
+  layout?: string | null;
+  hero_bullet?: string | null;
+  created_at: string;
+}
+
+export interface SlideDeck {
+  id: string;
+  user_id: string;
+  subject_id: string | null;
+  title: string;
+  slide_count: number;
+  template?: string | null;
+  created_at: string;
+}
+
 export interface ExamAttempt {
   id: string;
   exam_id: string;

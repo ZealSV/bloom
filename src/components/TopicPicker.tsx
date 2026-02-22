@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -24,52 +24,6 @@ const SUGGESTED_TOPICS = [
   { topic: "Supply and demand", subject: "Economics" },
 ];
 
-const BROAD_TOPICS = new Set([
-  "biology",
-  "computer science",
-  "cs",
-  "math",
-  "mathematics",
-  "physics",
-  "chemistry",
-  "history",
-  "economics",
-  "psychology",
-  "philosophy",
-  "engineering",
-  "medicine",
-  "law",
-  "art",
-  "music",
-  "literature",
-  "statistics",
-  "data science",
-  "ai",
-  "artificial intelligence",
-  "machine learning",
-  "neuroscience",
-  "political science",
-  "sociology",
-  "anthropology",
-  "geography",
-  "astronomy",
-  "environmental science",
-  "public health",
-  "finance",
-  "accounting",
-  "business",
-  "marketing",
-  "design",
-  "architecture",
-  "mechanical engineering",
-  "electrical engineering",
-  "civil engineering",
-  "software engineering",
-  "robotics",
-  "linguistics",
-  "education",
-]);
-
 export type TeachingMode = "chat" | "speak";
 
 interface TopicPickerProps {
@@ -87,21 +41,9 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
   const [goal, setGoal] = useState("");
   const [classifying, setClassifying] = useState(false);
 
-  const isBroadTopic = useMemo(() => {
-    const trimmed = topic.trim().toLowerCase();
-    if (!trimmed) return false;
-    if (BROAD_TOPICS.has(trimmed)) return true;
-    return false;
-  }, [topic]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (topic.trim()) {
-      if (isBroadTopic) {
-        setStep("clarify");
-        return;
-      }
-
       try {
         setClassifying(true);
         const res = await fetch("/api/topics/classify", {

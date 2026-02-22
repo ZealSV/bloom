@@ -43,17 +43,27 @@ export default function SourceSelector({
         lecturesQuery = lecturesQuery.eq("subject_id", subjectId);
       }
 
+      const documentsQuery = subjectId
+        ? supabase
+            .from("documents" as any)
+            .select("id, title, subject_id")
+            .eq("subject_id", subjectId)
+            .order("created_at", { ascending: false })
+        : supabase
+            .from("documents" as any)
+            .select("id, title, subject_id")
+            .order("created_at", { ascending: false });
+
+      const sessionsQuery = supabase
+        .from("sessions")
+        .select("id, topic")
+        .order("updated_at", { ascending: false })
+        .limit(10);
+
       const [lecturesRes, documentsRes, sessionsRes] = await Promise.all([
         lecturesQuery,
-        supabase
-          .from("documents" as any)
-          .select("id, title")
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("sessions")
-          .select("id, topic")
-          .order("updated_at", { ascending: false })
-          .limit(10),
+        documentsQuery,
+        sessionsQuery,
       ]);
 
       const all: Source[] = [];
@@ -68,16 +78,23 @@ export default function SourceSelector({
         );
       }
       if (documentsRes.data) {
-        const documents = documentsRes.data as unknown as { id: string; title: string }[];
+        const documents = documentsRes.data as unknown as {
+          id: string;
+          title: string;
+          subject_id?: string | null;
+        }[];
+        const scoped = subjectId
+          ? documents.filter((d) => d.subject_id === subjectId)
+          : documents;
         all.push(
-          ...documents.map((d) => ({
+          ...scoped.map((d) => ({
             id: d.id,
             title: d.title,
             type: "document" as SourceType,
           }))
         );
       }
-      if (sessionsRes.data) {
+      if (!subjectId && sessionsRes.data) {
         const sessions = sessionsRes.data as unknown as { id: string; topic: string }[];
         all.push(
           ...sessions.map((s) => ({

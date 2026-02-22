@@ -18,6 +18,7 @@ import {
   FileText,
   CheckCircle2,
   X,
+  Presentation,
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import FlashcardGenerator from "@/components/study/FlashcardGenerator";
 import FlashcardDeck from "@/components/study/FlashcardDeck";
 import ExamGenerator from "@/components/study/ExamGenerator";
 import ExamView from "@/components/study/ExamView";
+import SourceSelector from "@/components/study/SourceSelector";
 import { useFlashcards } from "@/hooks/useFlashcards";
 import { useExam } from "@/hooks/useExam";
 import type {
@@ -43,6 +45,8 @@ import type {
   FlashcardDeck as DeckType,
   PracticeExam,
   Subject,
+  SlideDeck,
+  Slide,
 } from "@/types/study";
 
 type LectureViewState =
@@ -99,6 +103,28 @@ export default function SubjectDetailPage({
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const [slideDecks, setSlideDecks] = useState<SlideDeck[]>([]);
+  const [selectedDeck, setSelectedDeck] = useState<SlideDeck | null>(null);
+  const [slides, setSlides] = useState<Slide[]>([]);
+  const [slidesLoading, setSlidesLoading] = useState(false);
+  const [slidesError, setSlidesError] = useState<string | null>(null);
+  const [slidesGenerating, setSlidesGenerating] = useState(false);
+  const [slideCount, setSlideCount] = useState(8);
+  const [deckTitle, setDeckTitle] = useState("");
+  const [slideTemplate, setSlideTemplate] = useState<
+    "minimal_light" | "modern_ink" | "classic_lecture" | "dark_night" | "studio_green"
+  >("minimal_light");
+  const [generateImages, setGenerateImages] = useState(true);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportDeckId, setExportDeckId] = useState<string | null>(null);
+  const [exportSlideIds, setExportSlideIds] = useState<string[]>([]);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [deletingDeckId, setDeletingDeckId] = useState<string | null>(null);
+  const [slideSources, setSlideSources] = useState<{
+    sourceType: "all" | "lecture" | "document" | "session";
+    sourceIds: string[];
+  }>({ sourceType: "all", sourceIds: [] });
 
   // Edit dialog state
   const [editDialog, setEditDialog] = useState<{
@@ -133,6 +159,27 @@ export default function SubjectDetailPage({
       setLectures(data);
     }
   }, [subjectId]);
+
+  const fetchSlideDecks = useCallback(async () => {
+    const res = await fetch(`/api/study/slides?subject_id=${subjectId}`);
+    if (res.ok) {
+      const data = await res.json();
+      setSlideDecks(data);
+    }
+  }, [subjectId]);
+
+  const fetchSlides = useCallback(async (deckId: string) => {
+    setSlidesLoading(true);
+    setSlidesError(null);
+    const res = await fetch(`/api/study/slides?deck_id=${deckId}`);
+    if (res.ok) {
+      const data = await res.json();
+      setSlides(data);
+    } else {
+      setSlidesError("Failed to load slides.");
+    }
+    setSlidesLoading(false);
+  }, []);
 
   const fetchLecture = useCallback(async (lectureId: string) => {
     const res = await fetch(`/api/lectures/${lectureId}`);
@@ -296,6 +343,7 @@ export default function SubjectDetailPage({
         fetchLectures(),
         fetchDecks(subjectId),
         fetchExams(subjectId),
+        fetchSlideDecks(),
       ]);
       setLoading(false);
     }
@@ -318,6 +366,123 @@ export default function SubjectDetailPage({
     const full = await fetchLecture(lecture.id);
     if (full) {
       setLectureView({ mode: "view", lecture: full });
+    }
+  };
+
+  const handleGenerateSlides = async () => {
+    setSlidesGenerating(true);
+    setSlidesError(null);
+    try {
+      const res = await fetch("/api/study/slides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subjectId,
+          title: deckTitle.trim() || subject?.name || "Slide Deck",
+          slideCount,
+          sourceType: slideSources.sourceType,
+          sourceIds: slideSources.sourceIds,
+          template: slideTemplate,
+          generateImages,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to generate slides");
+      }
+
+      const data = await res.json();
+      await fetchSlideDecks();
+      if (data?.deckId) {
+        setSelectedDeck({
+          id: data.deckId,
+          user_id: "",
+          subject_id: subjectId,
+          title: deckTitle.trim() || subject?.name || "Slide Deck",
+          slide_count: data.slideCount || slideCount,
+          template: slideTemplate,
+          created_at: new Date().toISOString(),
+        });
+        await fetchSlides(data.deckId);
+      }
+    } catch (err) {
+      setSlidesError(err instanceof Error ? err.message : "Failed to generate slides");
+    } finally {
+      setSlidesGenerating(false);
+    }
+  };
+
+  const handleStartExport = () => {
+    setExportError(null);
+    setExportDeckId(selectedDeck?.id || null);
+    setExportSlideIds([]);
+    setExportOpen(true);
+  };
+
+  const toggleExportSlide = (id: string) => {
+    setExportSlideIds((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
+    );
+  };
+
+  const handleExport = async () => {
+    if (!exportDeckId) {
+      setExportError("Select a deck to export.");
+      return;
+    }
+    setExporting(true);
+    setExportError(null);
+    try {
+      const res = await fetch("/api/study/slides/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deckId: exportDeckId,
+          slideIds: exportSlideIds.length ? exportSlideIds : undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Failed to export");
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "slides.pptx";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setExportOpen(false);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Failed to export");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDeleteDeck = async (deckId: string) => {
+    setDeletingDeckId(deckId);
+    try {
+      const res = await fetch(`/api/study/slides?deck_id=${deckId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        throw new Error("Failed to delete deck");
+      }
+      if (selectedDeck?.id === deckId) {
+        setSelectedDeck(null);
+        setSlides([]);
+      }
+      await fetchSlideDecks();
+    } catch (err) {
+      setSlidesError(err instanceof Error ? err.message : "Failed to delete deck");
+    } finally {
+      setDeletingDeckId(null);
     }
   };
 
@@ -430,6 +595,13 @@ export default function SubjectDetailPage({
             >
               <ClipboardCheck className="h-4 w-4" />
               Exams
+            </TabsTrigger>
+            <TabsTrigger
+              value="slides"
+              className="flex items-center gap-2 rounded-lg px-4 py-2 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+            >
+              <Presentation className="h-4 w-4" />
+              Slides
             </TabsTrigger>
             <TabsTrigger
               value="files"
@@ -758,6 +930,323 @@ export default function SubjectDetailPage({
               </div>
             </section>
           </TabsContent>
+
+          {/* Slides Tab */}
+          <TabsContent value="slides">
+            <section className="rounded-2xl border border-border bg-card overflow-hidden">
+              <div className="p-5 space-y-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-medium text-foreground">
+                      Slide Decks
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Generated from PDFs and lectures in this bucket.
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleGenerateSlides}
+                    disabled={slidesGenerating}
+                  >
+                    <Presentation className="mr-1.5 h-3.5 w-3.5" />
+                    {slidesGenerating ? "Generating..." : "Generate Slides"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleStartExport}
+                    disabled={slideDecks.length === 0}
+                    className={`${
+                      slideDecks.length === 0
+                        ? "text-muted-foreground"
+                        : "text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/10"
+                    }`}
+                  >
+                    Export PPTX
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <div className="lg:col-span-1 space-y-3">
+                    <div className="rounded-lg border border-border p-3 space-y-2">
+                      <p className="text-xs text-muted-foreground">Deck title</p>
+                      <Input
+                        value={deckTitle}
+                        onChange={(e) => setDeckTitle(e.target.value)}
+                        placeholder={`${subject?.name || "Slide Deck"}`}
+                      />
+                      <p className="text-xs text-muted-foreground">Slide count</p>
+                      <Input
+                        value={String(slideCount)}
+                        onChange={(e) =>
+                          setSlideCount(Math.max(4, Number(e.target.value) || 8))
+                        }
+                        type="number"
+                        min={4}
+                        max={20}
+                      />
+                      <p className="text-xs text-muted-foreground">Template</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          variant={slideTemplate === "minimal_light" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSlideTemplate("minimal_light")}
+                        >
+                          Minimal Light
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={slideTemplate === "modern_ink" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSlideTemplate("modern_ink")}
+                        >
+                          Modern Ink
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={slideTemplate === "classic_lecture" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSlideTemplate("classic_lecture")}
+                        >
+                          Classic Lecture
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={slideTemplate === "dark_night" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSlideTemplate("dark_night")}
+                        >
+                          Dark Night
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={slideTemplate === "studio_green" ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setSlideTemplate("studio_green")}
+                        >
+                          Studio Green
+                        </Button>
+                      </div>
+                      <div className="flex items-center justify-between pt-2">
+                        <p className="text-xs text-muted-foreground">
+                          Generate images
+                        </p>
+                        <Button
+                          type="button"
+                          variant={generateImages ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setGenerateImages((v) => !v)}
+                        >
+                          {generateImages ? "On" : "Off"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-border p-3 space-y-2">
+                      <p className="text-xs text-muted-foreground">Sources</p>
+                      <SourceSelector
+                        selected={slideSources}
+                        onSelect={(st, ids) =>
+                          setSlideSources({ sourceType: st, sourceIds: ids })
+                        }
+                        subjectId={subjectId}
+                      />
+                    </div>
+
+                    <div className="rounded-lg border border-border p-3 space-y-2">
+                      <p className="text-xs text-muted-foreground">Decks</p>
+                      {slideDecks.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          No slide decks yet. Generate one to get started.
+                        </p>
+                      ) : (
+                        <div className="space-y-1 max-h-56 overflow-y-auto">
+                          {slideDecks.map((deck) => (
+                            <div
+                              key={deck.id}
+                              className={`w-full text-left text-xs rounded-md px-2.5 py-2 border transition-colors ${
+                                selectedDeck?.id === deck.id
+                                  ? "bg-primary/10 border-primary/30 text-primary"
+                                  : "border-border hover:bg-muted"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedDeck(deck);
+                                    fetchSlides(deck.id);
+                                  }}
+                                  className="flex-1 text-left"
+                                >
+                                  <div className="font-medium">{deck.title}</div>
+                                  <div className="text-[10px] text-muted-foreground">
+                                    {deck.slide_count} slides
+                                  </div>
+                                </button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                                  onClick={() => handleDeleteDeck(deck.id)}
+                                  disabled={deletingDeckId === deck.id}
+                                  title="Delete deck"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-2 rounded-lg border border-border p-4">
+                    {slidesError && (
+                      <p className="text-xs text-destructive mb-2">
+                        {slidesError}
+                      </p>
+                    )}
+                    {!selectedDeck ? (
+                      <p className="text-xs text-muted-foreground">
+                        Select a deck to preview slides.
+                      </p>
+                    ) : slidesLoading ? (
+                      <p className="text-xs text-muted-foreground">
+                        Loading slides...
+                      </p>
+                    ) : slides.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        No slides found for this deck.
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="text-sm font-medium text-foreground">
+                            {selectedDeck.title}
+                          </h4>
+                          <p className="text-xs text-muted-foreground">
+                            {slides.length} slides
+                          </p>
+                        </div>
+                        <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                          {slides.map((slide) => (
+                            <div
+                              key={slide.id}
+                              className="rounded-lg border border-border/60 bg-muted/10 p-3"
+                            >
+                              <p className="text-xs text-muted-foreground mb-1">
+                                Slide {slide.slide_index + 1}
+                              </p>
+                              <p className="text-sm font-medium text-foreground mb-2">
+                                {slide.title}
+                              </p>
+                              <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1">
+                                {slide.bullets?.map((b, idx) => (
+                                  <li key={idx}>{b}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+          </TabsContent>
+
+          <Dialog open={exportOpen} onOpenChange={setExportOpen}>
+            <DialogContent className="sm:max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="font-outfit">Export Slides</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Deck</p>
+                  <div className="space-y-1">
+                    {slideDecks.map((deck) => (
+                      <button
+                        key={deck.id}
+                        onClick={() => {
+                          setExportDeckId(deck.id);
+                          setExportSlideIds([]);
+                          fetchSlides(deck.id);
+                        }}
+                        className={`w-full text-left text-xs rounded-md px-2.5 py-2 border transition-colors ${
+                          exportDeckId === deck.id
+                            ? "bg-primary/10 border-primary/30 text-primary"
+                            : "border-border hover:bg-muted"
+                        }`}
+                      >
+                        <div className="font-medium">{deck.title}</div>
+                        <div className="text-[10px] text-muted-foreground">
+                          {deck.slide_count} slides
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Slides to export
+                  </p>
+                  {slidesLoading ? (
+                    <p className="text-xs text-muted-foreground">Loading slides...</p>
+                  ) : slides.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Select a deck to choose slides.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto pr-1">
+                      {slides.map((slide) => (
+                        <label
+                          key={slide.id}
+                          className="flex items-center gap-2 text-xs rounded-md border border-border px-2.5 py-2 hover:bg-muted/50 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={exportSlideIds.includes(slide.id)}
+                            onChange={() => toggleExportSlide(slide.id)}
+                          />
+                          <span className="text-muted-foreground">
+                            Slide {slide.slide_index + 1}
+                          </span>
+                          <span className="truncate">{slide.title}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-muted-foreground mt-2">
+                    Leave unchecked to export the full deck.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs text-muted-foreground">
+                    Template is set when you generate the deck.
+                  </p>
+                </div>
+
+                {exportError && (
+                  <p className="text-xs text-destructive">{exportError}</p>
+                )}
+
+                <div className="flex items-center justify-end gap-2">
+                  <Button variant="outline" onClick={() => setExportOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleExport} disabled={exporting}>
+                    {exporting ? "Exporting..." : "Export PPTX"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Files Tab */}
           <TabsContent value="files">

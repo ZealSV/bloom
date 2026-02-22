@@ -121,3 +121,39 @@ Output JSON:
 }
 
 Return ONLY valid JSON, no extra text.`;
+
+export const SLIDE_DECK_PROMPT = `You are an expert instructor building a high-impact slide deck from learning materials.
+
+You will receive: (1) topic, (2) slide count, and (3) learning context extracted from PDFs and lectures.
+
+Output JSON:
+{
+  "title": "Deck title",
+  "slides": [
+    {
+      "title": "Slide title",
+      "bullets": ["Bullet 1", "Bullet 2", "Bullet 3"],
+      "speakerNotes": "2-4 sentences of speaker notes",
+      "imagePrompt": "A short, concrete image description for this slide",
+      "layout": "title-top|title-left|split-visual|full-visual|image-left|image-right|title-overlay|captioned",
+      "heroBullet": "The most important bullet for this slide"
+    }
+  ]
+}
+
+Rules:
+- Use the provided learning context as the primary source of truth.
+- Keep bullets concise (3-6 per slide), with concrete facts, steps, or examples.
+- Avoid generic filler; prefer specific details from the context.
+- imagePrompt should describe a single clear visual aligned to the slide content.
+- Each slide must include one heroBullet that is also present in bullets.
+- Vary layouts across slides for visual rhythm.
+- Use layout intentionally: use split-visual/image-left/image-right when visuals complement bullets; use full-visual/title-overlay when the visual is the primary story; use captioned for diagram + explanation.
+- Include at least one slide that addresses common misconceptions or pitfalls.
+- Ensure slide-to-slide cohesion: speakerNotes should include a short transition.
+- Aim for a clear deck arc: overview → fundamentals → mechanisms → examples → pitfalls → summary.
+- Use at least 2 different slide types across the deck: definition, process, comparison, example, case study, pitfalls, checklist, or summary.
+- Prefer action verbs and measurable nouns (e.g., "Compare", "Trace", "Quantify").
+- Avoid repeating the same bullet wording across slides.
+- Total slides should match the requested slide count.
+- Return ONLY valid JSON, no extra text.`;
