@@ -27,15 +27,13 @@ export async function POST(request: NextRequest) {
     if (!isValidEmail(email)) {
       return NextResponse.json(
         { error: "Invalid email address." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const supabase = getSupabaseAdmin();
 
-    const windowStart = new Date(
-      Date.now() - OTP_RATE_WINDOW_MS
-    ).toISOString();
+    const windowStart = new Date(Date.now() - OTP_RATE_WINDOW_MS).toISOString();
 
     const { count, error: countError } = await supabase
       .from("otp_codes")
@@ -46,14 +44,14 @@ export async function POST(request: NextRequest) {
     if (countError) {
       return NextResponse.json(
         { error: "Something went wrong. Please try again." },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     if ((count ?? 0) >= OTP_RATE_LIMIT) {
       return NextResponse.json(
         { error: "Too many attempts. Please wait 10 minutes." },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -78,7 +76,7 @@ export async function POST(request: NextRequest) {
     if (insertError) {
       return NextResponse.json(
         { error: "Something went wrong. Please try again." },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -92,7 +90,7 @@ export async function POST(request: NextRequest) {
         .eq("otp_hash", otpHash);
       return NextResponse.json(
         { error: "Failed to send email. Please try again." },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -100,7 +98,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
