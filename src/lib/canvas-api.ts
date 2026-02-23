@@ -46,6 +46,14 @@ interface CanvasModuleItem {
   url?: string;
 }
 
+interface CanvasPage {
+  body?: string | null;
+}
+
+interface CanvasCourseDetails {
+  syllabus_body?: string | null;
+}
+
 class CanvasAPIError extends Error {
   constructor(
     message: string,
@@ -245,17 +253,93 @@ export async function listCourseFiles(
     }
   }
 
+  // Also scan the Home tab (front page + syllabus) for linked files
+  const homeFileIds = await listHomeTabFileIds(creds, courseId);
+  if (homeFileIds.length > 0) {
+    const seen = new Set(files.map((f) => f.id));
+    const toFetch = homeFileIds.filter((id) => !seen.has(id));
+    for (let i = 0; i < toFetch.length; i += BATCH_SIZE) {
+      const batch = toFetch.slice(i, i + BATCH_SIZE);
+      const results = await Promise.allSettled(
+        batch.map((id) =>
+          canvasRequest<CanvasFile>(
+            creds,
+            `/courses/${courseId}/files/${id}`,
+          )
+        )
+      );
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          files.push(result.value);
+        }
+      }
+    }
+  }
+
   return files;
+}
+
+function extractCanvasFileIdsFromHtml(html?: string | null): number[] {
+  if (!html) return [];
+  const ids = new Set<number>();
+  const filePathRegex = /\/files\/(\d+)/g;
+  const fileIdRegex = /file_id=(\d+)/g;
+
+  let match: RegExpExecArray | null;
+  while ((match = filePathRegex.exec(html)) !== null) {
+    const id = Number(match[1]);
+    if (Number.isFinite(id)) ids.add(id);
+  }
+  while ((match = fileIdRegex.exec(html)) !== null) {
+    const id = Number(match[1]);
+    if (Number.isFinite(id)) ids.add(id);
+  }
+
+  return Array.from(ids);
+}
+
+async function listHomeTabFileIds(
+  creds: CanvasCredentials,
+  courseId: number,
+): Promise<number[]> {
+  const ids = new Set<number>();
+
+  // Front page (Home tab)
+  try {
+    const frontPage = await canvasRequest<CanvasPage>(
+      creds,
+      `/courses/${courseId}/front_page`,
+    );
+    for (const id of extractCanvasFileIdsFromHtml(frontPage.body)) {
+      ids.add(id);
+    }
+  } catch {
+    // Ignore front page failures
+  }
+
+  // Syllabus body (also shown in Home for syllabus-based courses)
+  try {
+    const course = await canvasRequest<CanvasCourseDetails>(
+      creds,
+      `/courses/${courseId}?include[]=syllabus_body`,
+    );
+    for (const id of extractCanvasFileIdsFromHtml(course.syllabus_body)) {
+      ids.add(id);
+    }
+  } catch {
+    // Ignore syllabus failures
+  }
+
+  return Array.from(ids);
 }
 
 export async function downloadFileContent(
   creds: CanvasCredentials,
   downloadUrl: string,
 ): Promise<Buffer> {
-  const headers: HeadersInit = {};
-  if (downloadUrl.includes("/api/v1/")) {
-    headers.Authorization = `Bearer ${creds.token}`;
-  }
+  const headers: HeadersInit = {
+    Authorization: `Bearer ${creds.token}`,
+  };
   const response = await fetch(downloadUrl, { headers });
   if (!response.ok) {
     throw new Error(`Failed to download file: ${response.statusText}`);

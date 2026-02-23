@@ -245,12 +245,12 @@ export default function SettingsPage() {
                     </p>
                     <p className="text-muted-foreground">
                       {syncResult.coursesCreated} courses created,{" "}
-                      {syncResult.coursesSkipped} skipped
+                      {syncResult.coursesSkipped} already connected
                     </p>
                     <p className="text-muted-foreground">
                       {syncResult.filesUploaded} files uploaded,{" "}
                       {syncResult.filesIngested} ingested,{" "}
-                      {syncResult.filesSkipped} skipped
+                      {syncResult.filesSkipped} already imported
                     </p>
                     {syncResult.warnings && syncResult.warnings.length > 0 && (
                       <div className="text-yellow-600 space-y-0.5">

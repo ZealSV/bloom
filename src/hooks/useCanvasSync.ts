@@ -130,9 +130,24 @@ export function useCanvasSync() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ courseIds }),
         });
-        const data = await res.json();
+        const contentType = res.headers.get("content-type") || "";
+        let data: any = null;
+        if (contentType.includes("application/json")) {
+          try {
+            data = await res.json();
+          } catch {
+            data = null;
+          }
+        } else {
+          const text = await res.text();
+          data = text ? { error: text } : null;
+        }
         if (!res.ok) {
-          setError(data.error || "Sync failed");
+          setError(data?.error || `Sync failed (${res.status})`);
+          return null;
+        }
+        if (!data) {
+          setError("Unexpected sync response");
           return null;
         }
         setSyncResult(data);

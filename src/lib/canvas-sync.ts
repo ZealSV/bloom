@@ -165,12 +165,18 @@ export async function syncCanvasContent(
           // Dedup: skip only if a doc with this canvas_file_id was actually uploaded
           const { data: existingDoc } = await admin
             .from("documents")
-            .select("id, file_path")
+            .select("id, file_path, subject_id")
             .eq("user_id", userId)
             .eq("canvas_file_id", file.id)
             .maybeSingle();
 
           if (existingDoc && existingDoc.file_path) {
+            if (existingDoc.subject_id !== subjectId) {
+              await admin
+                .from("documents")
+                .update({ subject_id: subjectId })
+                .eq("id", existingDoc.id);
+            }
             filesSkipped++;
             continue;
           }

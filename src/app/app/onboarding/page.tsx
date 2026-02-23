@@ -575,8 +575,12 @@ export default function OnboardingPage() {
                   className="h-10 px-5"
                   disabled={canvas.syncing || selectedCourseIds.size === 0}
                   onClick={async () => {
-                    await canvas.triggerSync(Array.from(selectedCourseIds));
-                    setStep("canvas-extra");
+                    const result = await canvas.triggerSync(
+                      Array.from(selectedCourseIds),
+                    );
+                    if (result?.success) {
+                      setStep("canvas-extra");
+                    }
                   }}
                 >
                   {canvas.syncing ? (
