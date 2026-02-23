@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { ArrowLeft, Plus, FolderOpen, Flower, GripVertical } from "lucide-react";
+import { ArrowLeft, Plus, FolderOpen, Flower, GripVertical, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,11 +74,15 @@ function SortableSubjectCard({
   onClick,
   onDelete,
   onEdit,
+  selected,
+  onSelectToggle,
 }: {
   subject: Subject;
   onClick: () => void;
   onDelete: () => void;
   onEdit: () => void;
+  selected: boolean;
+  onSelectToggle: () => void;
 }) {
   const {
     attributes,
@@ -103,6 +107,8 @@ function SortableSubjectCard({
         onClick={onClick}
         onDelete={onDelete}
         onEdit={onEdit}
+        selected={selected}
+        onSelectToggle={onSelectToggle}
         dragHandle={
           <button
             className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors touch-none"
@@ -128,6 +134,10 @@ export default function BucketsPage() {
   const [creating, setCreating] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [subjectToDelete, setSubjectToDelete] = useState<Subject | null>(null);
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   const supabase = useMemo(() => createClient(), []);
   const { subjects, fetchSubjects, createSubject, deleteSubject, updateSubject, setSubjects } =
@@ -208,6 +218,23 @@ export default function BucketsPage() {
     setSubjectToDelete(null);
   };
 
+  const toggleSubjectSelection = (id: string) => {
+    setSelectedSubjectIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedSubjectIds);
+    if (ids.length === 0) return;
+    await Promise.all(ids.map((id) => deleteSubject(id)));
+    setSelectedSubjectIds(new Set());
+    setBulkDeleteOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -233,13 +260,24 @@ export default function BucketsPage() {
           </div>
         </div>
 
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              New Subject
+        <div className="flex items-center gap-2">
+          {selectedSubjectIds.size > 0 && (
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => setBulkDeleteOpen(true)}
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              Delete {selectedSubjectIds.size}
             </Button>
-          </DialogTrigger>
+          )}
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm">
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                New Subject
+              </Button>
+            </DialogTrigger>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle className="font-outfit">Create Subject</DialogTitle>
@@ -279,8 +317,15 @@ export default function BucketsPage() {
               </Button>
             </div>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </header>
+
+      <DelelteConfirm
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        onYes={handleBulkDelete}
+      />
 
       {/* Edit Subject Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
@@ -374,15 +419,17 @@ export default function BucketsPage() {
                 strategy={rectSortingStrategy}
               >
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {subjects.map((subject) => (
-                    <SortableSubjectCard
-                      key={subject.id}
-                      subject={subject}
-                      onClick={() => router.push(`/app/buckets/${subject.id}`)}
-                      onDelete={() => handleRequestDelete(subject)}
-                      onEdit={() => handleEdit(subject)}
-                    />
-                  ))}
+                {subjects.map((subject) => (
+                  <SortableSubjectCard
+                    key={subject.id}
+                    subject={subject}
+                    onClick={() => router.push(`/app/buckets/${subject.id}`)}
+                    onDelete={() => handleRequestDelete(subject)}
+                    onEdit={() => handleEdit(subject)}
+                    selected={selectedSubjectIds.has(subject.id)}
+                    onSelectToggle={() => toggleSubjectSelection(subject.id)}
+                  />
+                ))}
                 </div>
               </SortableContext>
             </DndContext>

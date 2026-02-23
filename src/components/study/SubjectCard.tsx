@@ -1,7 +1,17 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mic, BookOpen, ClipboardCheck, FileText, Trash2, ChevronRight, Pencil, GripVertical } from "lucide-react";
+import {
+  Mic,
+  BookOpen,
+  ClipboardCheck,
+  FileText,
+  Trash2,
+  ChevronRight,
+  Pencil,
+  GripVertical,
+  Check,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Subject } from "@/types/study";
 
@@ -72,6 +82,8 @@ interface SubjectCardProps {
   onDelete: (e: React.MouseEvent) => void;
   onEdit?: (e: React.MouseEvent) => void;
   dragHandle?: React.ReactNode;
+  selected?: boolean;
+  onSelectToggle?: (e: React.MouseEvent) => void;
 }
 
 export default function SubjectCard({
@@ -80,6 +92,8 @@ export default function SubjectCard({
   onDelete,
   onEdit,
   dragHandle,
+  selected,
+  onSelectToggle,
 }: SubjectCardProps) {
   const colors = subject.color ? colorMap[subject.color] || defaultColor : defaultColor;
   const lectureCount = subject.lecture_count ?? 0;
@@ -100,7 +114,23 @@ export default function SubjectCard({
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-2">
             {dragHandle}
-            <div className={`w-3 h-3 rounded-full ${colors.accent} ring-2 ring-offset-1 ring-offset-transparent ring-white/10`} />
+            <button
+              type="button"
+              aria-pressed={selected}
+              className={`relative h-6 w-6 rounded-full border transition-colors ${
+                selected
+                  ? `${colors.accent} border-transparent`
+                  : "border-border/70 bg-background/60 hover:bg-muted/60"
+              }`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectToggle?.(e);
+              }}
+            >
+              {selected && (
+                <Check className="h-3.5 w-3.5 text-white absolute inset-0 m-auto" />
+              )}
+            </button>
           </div>
           <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity -mr-1 -mt-1">
             {onEdit && (

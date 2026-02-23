@@ -33,13 +33,14 @@ export default function SettingsPage() {
     triggerSync,
   } = useCanvasSync();
 
+  const [credentialsChecked, setCredentialsChecked] = useState(false);
   const [showCoursePicker, setShowCoursePicker] = useState(false);
   const [selectedCourseIds, setSelectedCourseIds] = useState<Set<number>>(
     new Set(),
   );
 
   useEffect(() => {
-    checkCredentials();
+    checkCredentials().finally(() => setCredentialsChecked(true));
   }, [checkCredentials]);
 
   const handleSyncClick = async () => {
@@ -111,7 +112,12 @@ export default function SettingsPage() {
           </p>
 
           <div className="rounded-xl border border-border bg-card p-5">
-            {status.hasCredentials ? (
+            {!credentialsChecked ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Checking Canvas connection...
+              </div>
+            ) : status.hasCredentials ? (
               <div className="space-y-4">
                 {/* Connection info */}
                 <div className="flex items-center justify-between">
