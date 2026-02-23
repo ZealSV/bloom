@@ -111,7 +111,7 @@ function SortableSubjectCard({
         onSelectToggle={onSelectToggle}
         dragHandle={
           <button
-            className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors touch-none"
+            className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors touch-none p-1 -m-1"
             {...listeners}
             onClick={(e) => e.stopPropagation()}
           >
@@ -144,7 +144,7 @@ export default function BucketsPage() {
     useSubjects();
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 14 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
@@ -238,15 +238,15 @@ export default function BucketsPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-6 sticky top-0 z-10">
+      <header className="h-12 sm:h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center justify-between px-4 sm:px-6 sticky top-0 z-10">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0" asChild>
-            <Link href="/app">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" asChild>
+              <Link href="/app">
+              <ArrowLeft className="h-4 w-4 sm:h-4 sm:w-4" />
+              </Link>
+            </Button>
           <div className="h-5 w-px bg-border" />
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
             <Image
               src="/bloomlogo.png"
               alt="bloom"
@@ -254,7 +254,7 @@ export default function BucketsPage() {
               height={22}
               className="rounded-md"
             />
-            <h1 className="font-outfit font-semibold text-foreground">
+            <h1 className="font-outfit font-semibold text-foreground text-sm sm:text-base">
               Buckets
             </h1>
           </div>
@@ -273,9 +273,10 @@ export default function BucketsPage() {
           )}
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" className="h-8">
                 <Plus className="mr-1.5 h-3.5 w-3.5" />
-                New Subject
+                <span className="hidden sm:inline">New Subject</span>
+                <span className="sm:hidden">New</span>
               </Button>
             </DialogTrigger>
           <DialogContent className="sm:max-w-md">
@@ -371,7 +372,7 @@ export default function BucketsPage() {
       </Dialog>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -418,7 +419,7 @@ export default function BucketsPage() {
                 items={subjects.map((s) => s.id)}
                 strategy={rectSortingStrategy}
               >
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {subjects.map((subject) => (
                   <SortableSubjectCard
                     key={subject.id}
@@ -436,6 +437,19 @@ export default function BucketsPage() {
           </motion.div>
         )}
       </div>
+
+      {selectedSubjectIds.size > 0 && (
+        <div className="sm:hidden sticky bottom-0 left-0 right-0 border-t border-border bg-card/95 backdrop-blur px-4 py-3">
+          <Button
+            variant="destructive"
+            className="w-full h-10"
+            onClick={() => setBulkDeleteOpen(true)}
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete {selectedSubjectIds.size} selected
+          </Button>
+        </div>
+      )}
 
       <DelelteConfirm
         open={deleteConfirmOpen}

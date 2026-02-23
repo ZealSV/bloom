@@ -355,50 +355,56 @@ function StickyHowItWorks() {
   return (
     <div
       ref={containerRef}
-      className="max-w-5xl mx-auto px-4 sm:px-6 md:px-12 relative h-[300vh]"
+      className="max-w-5xl mx-auto px-4 sm:px-6 md:px-12 relative lg:h-[300vh]"
     >
-      {/* Mobile sticky visual — outside flex so sticky works within the 300vh container */}
-      <div className="lg:hidden sticky top-14 z-20 pt-4 pb-2">
-        <div className="w-full h-48 rounded-2xl bg-card/95 backdrop-blur-xl border border-border/50 overflow-hidden shadow-xl relative">
-          <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-transparent opacity-50" />
-          <motion.div
-            style={{ opacity: topicOpacity }}
-            className="absolute inset-0 flex items-center justify-center p-6"
-          >
-            <TopicVisual />
-          </motion.div>
-          <motion.div
-            style={{ opacity: chatOpacity }}
-            className="absolute inset-0 flex items-center justify-center p-6"
-          >
-            <ChatVisual />
-          </motion.div>
-          <motion.div
-            style={{ opacity: gardenOpacity }}
-            className="absolute inset-0 flex items-center justify-center p-6"
-          >
-            <GardenVisual />
-          </motion.div>
-        </div>
+      {/* Mobile: static stacked sections */}
+      <div className="lg:hidden space-y-12 py-6">
+        {steps.map((step, i) => (
+          <div key={i} className="space-y-4">
+            <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-primary/10 text-primary text-[10px] font-mono">
+              {step.num}
+            </div>
+            <div>
+              <h2 className="font-outfit text-2xl font-bold text-foreground tracking-tight mb-2">
+                {step.title}
+              </h2>
+              <p className="text-base text-muted-foreground leading-relaxed max-w-sm">
+                {step.desc}
+              </p>
+            </div>
+            <div className="w-full rounded-2xl bg-card/95 backdrop-blur-xl border border-border/60 overflow-hidden shadow-xl relative p-4">
+              <div className="absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-transparent opacity-50" />
+              <div className="relative flex items-center justify-center">
+                {step.num === "01" ? (
+                  <TopicVisual />
+                ) : step.num === "02" ? (
+                  <ChatVisual />
+                ) : (
+                  <GardenVisual />
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-12 lg:gap-24 relative lg:h-full">
+      <div className="hidden lg:flex flex-col lg:flex-row gap-12 lg:gap-24 relative lg:h-full">
         <div className="flex-1">
           {steps.map((step, i) => (
-            <div key={i} className="h-screen flex flex-col justify-center">
+            <div key={i} className="min-h-[70vh] sm:h-screen flex flex-col justify-center py-8 sm:py-0">
               <motion.div
                 initial={{ opacity: 0.3, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ margin: "-20% 0px -20% 0px" }}
                 transition={{ duration: 0.8 }}
               >
-                <div className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary text-[10px] font-mono mb-6">
+                <div className="inline-flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/10 text-primary text-[10px] font-mono mb-5 sm:mb-6">
                   {step.num}
                 </div>
-                <h2 className="font-outfit text-3xl sm:text-4xl font-bold text-foreground tracking-tight mb-6">
+                <h2 className="font-outfit text-2xl sm:text-4xl font-bold text-foreground tracking-tight mb-4 sm:mb-6">
                   {step.title}
                 </h2>
-                <p className="text-lg text-muted-foreground leading-relaxed max-w-sm">
+                <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xs sm:max-w-sm">
                   {step.desc}
                 </p>
               </motion.div>
@@ -443,16 +449,16 @@ function StickyHowItWorks() {
 
 function TopicVisual() {
   return (
-    <div className="w-full max-w-[280px] space-y-5">
+    <div className="w-full max-w-[260px] sm:max-w-[280px] space-y-4 sm:space-y-5">
       <motion.div
         animate={{ y: [0, -12, 0] }}
         transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-        className="p-5 rounded-2xl bg-background border border-border/50 shadow-2xl backdrop-blur-md"
+        className="p-4 sm:p-5 rounded-2xl bg-background border border-border/50 shadow-2xl backdrop-blur-md"
       >
         <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2 font-medium">
           Subject
         </p>
-        <p className="text-base font-semibold text-foreground">
+        <p className="text-[13px] sm:text-base font-semibold text-foreground">
           Quantum Entanglement
         </p>
       </motion.div>
@@ -464,17 +470,19 @@ function TopicVisual() {
           ease: "easeInOut",
           delay: 0.8,
         }}
-        className="p-5 rounded-2xl bg-primary/20 border border-primary/20 shadow-2xl backdrop-blur-md"
+        className="p-4 sm:p-5 rounded-2xl bg-primary/20 border border-primary/20 shadow-2xl backdrop-blur-md"
       >
         <p className="text-[10px] text-primary uppercase tracking-widest mb-2 font-medium">
           Complexity
         </p>
-        <p className="text-base font-semibold text-primary">Post-graduate</p>
+        <p className="text-[13px] sm:text-base font-semibold text-primary">
+          Post-graduate
+        </p>
       </motion.div>
       <motion.div
         animate={{ scale: [1, 1.03, 1] }}
         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-        className="p-5 rounded-2xl bg-background border border-border/50 shadow-xl"
+        className="p-4 sm:p-5 rounded-2xl bg-background border border-border/50 shadow-xl"
       >
         <div className="h-2 w-32 bg-muted rounded-full mb-4" />
         <div className="space-y-3">
@@ -488,9 +496,9 @@ function TopicVisual() {
 
 function ChatVisual() {
   return (
-    <div className="w-full max-w-[320px] space-y-8">
-      <div className="bg-muted/30 p-5 rounded-[1.5rem] rounded-tr-none ml-auto border border-border/20 shadow-sm backdrop-blur-sm">
-        <p className="text-sm text-foreground/70 leading-relaxed italic">
+    <div className="w-full max-w-[280px] sm:max-w-[320px] space-y-6 sm:space-y-8">
+      <div className="bg-muted/30 p-4 sm:p-5 rounded-[1.5rem] rounded-tr-none ml-auto border border-border/20 shadow-sm backdrop-blur-sm">
+        <p className="text-[12px] sm:text-sm text-foreground/70 leading-relaxed italic">
           "So, the particles stay connected even across galaxies?"
         </p>
       </div>
@@ -499,9 +507,9 @@ function ChatVisual() {
           animate={{ scale: [1, 1.02, 1] }}
           transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
           style={{ willChange: "transform" }}
-          className="origin-top-left bg-primary/10 p-5 rounded-[1.5rem] rounded-tl-none mr-auto border border-primary/20 relative shadow-md backdrop-blur-md"
+          className="origin-top-left bg-primary/10 p-4 sm:p-5 rounded-[1.5rem] rounded-tl-none mr-auto border border-primary/20 relative shadow-md backdrop-blur-md"
         >
-          <div className="absolute -top-7 left-0 flex items-center gap-2">
+          <div className="absolute -top-6 sm:-top-7 left-0 flex items-center gap-2">
             <Image
               src="/bloomlogo.png"
               alt="bloom"
@@ -513,14 +521,14 @@ function ChatVisual() {
               Bloom
             </span>
           </div>
-          <p className="text-sm text-primary font-medium leading-relaxed">
+          <p className="text-[12px] sm:text-sm text-primary font-medium leading-relaxed">
             Exactly. But if I measure one particle, what happens instantly to
             the other?
           </p>
         </motion.div>
       </div>
-      <div className="bg-muted/10 p-4 rounded-[1.2rem] rounded-tr-none ml-auto max-w-[85%] border border-border/10 opacity-40 blur-[0.5px]">
-        <p className="text-xs text-muted-foreground">
+      <div className="bg-muted/10 p-3 sm:p-4 rounded-[1.2rem] rounded-tr-none ml-auto max-w-[85%] border border-border/10 opacity-40 blur-[0.5px]">
+        <p className="text-[11px] sm:text-xs text-muted-foreground">
           "Thinking... is it related to the wave function collapse?"
         </p>
       </div>
@@ -549,7 +557,7 @@ function GardenVisual() {
     <div className="w-full h-full flex items-center justify-center">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full max-w-[320px]"
+        className="w-full max-w-[280px] sm:max-w-[320px]"
         style={{ overflow: "visible" }}
       >
         {/* Subtle ground line */}

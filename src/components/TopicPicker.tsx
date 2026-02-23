@@ -54,7 +54,7 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center p-6 relative">
+    <div className="flex-1 flex items-center justify-center p-4 sm:p-6 relative">
       <AnimatePresence mode="wait">
         {!showModePicker ? (
           <motion.div
@@ -67,7 +67,7 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
           >
             <div className="text-center mb-8">
               <motion.div
-                className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-5"
+                className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-primary/10 border border-primary/20 mb-4 sm:mb-5"
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", delay: 0.2 }}
@@ -80,10 +80,10 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
                   className="rounded-lg"
                 />
               </motion.div>
-              <h2 className="font-outfit text-3xl font-semibold text-foreground mb-2">
+              <h2 className="font-outfit text-2xl sm:text-3xl font-semibold text-foreground mb-2">
                 What do you want to teach today?
               </h2>
-              <p className="text-base text-muted-foreground max-w-md mx-auto">
+              <p className="text-sm sm:text-base text-muted-foreground max-w-md mx-auto">
                 Pick a topic and explain it to bloom. The best way to learn is
                 to teach.
               </p>
@@ -97,7 +97,7 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
                     placeholder="e.g., How DNA replication works..."
-                    className="h-12 pl-12 pr-4 ring-2 ring-transparent focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-background shadow-lg hover:shadow-emerald-500/10 transition-all duration-300"
+                    className="h-11 sm:h-12 pl-12 pr-4 ring-2 ring-transparent focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-background shadow-lg hover:shadow-emerald-500/10 transition-all duration-300"
                     autoFocus
                   />
                   <Flower className="absolute left-4 w-5 h-5 text-emerald-600 pointer-events-none" />
@@ -131,7 +131,7 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
                 <Button
                   type="submit"
                   disabled={!topic.trim() || loading}
-                  className="w-full h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md hover:shadow-xl transition-all duration-200 active:shadow-md border border-emerald-400/20"
+                  className="w-full h-11 sm:h-12 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-md hover:shadow-xl transition-all duration-200 active:shadow-md border border-emerald-400/20"
                 >
                   Start Teaching
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -158,26 +158,26 @@ export default function TopicPicker({ onStart, loading }: TopicPickerProps) {
             />
 
             <div className="mt-8">
-              <p className="text-xs text-muted-foreground mb-3 text-center">
+              <p className="text-[11px] sm:text-xs text-muted-foreground mb-3 text-center">
                 Or try one of these
               </p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
                 {SUGGESTED_TOPICS.map((s) => (
                   <motion.button
                     key={s.topic}
                     onClick={() => {
                       setTopic(s.topic);
                     }}
-                    className="p-4 rounded-lg transition-all text-left group relative border border-border/40 bg-muted/10 hover:bg-muted/20 hover:border-emerald-500/30"
+                    className="p-3 sm:p-4 rounded-lg transition-all text-left group relative border border-border/40 bg-muted/10 hover:bg-muted/20 hover:border-emerald-500/30"
                     whileHover={{ y: -2 }}
                     whileTap={{ y: 0 }}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-foreground group-hover:text-emerald-600 transition-colors">
+                        <p className="text-[13px] sm:text-sm font-medium text-foreground group-hover:text-emerald-600 transition-colors">
                           {s.topic}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-[11px] sm:text-xs text-muted-foreground mt-1">
                           {s.subject}
                         </p>
                       </div>

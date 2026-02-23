@@ -104,20 +104,20 @@ export default function SubjectCard({
 
   return (
     <motion.div
-      className={`group relative rounded-2xl border ${colors.bg} ${colors.border} cursor-pointer transition-colors duration-200 shadow-none h-full min-h-[190px]`}
+      className={`group relative rounded-2xl border ${colors.bg} ${colors.border} cursor-pointer transition-colors duration-200 shadow-none h-full min-h-[160px] sm:min-h-[190px]`}
       onClick={onClick}
     >
       {/* Solid background only (no glow) */}
 
-      <div className="relative p-5 h-full flex flex-col">
+      <div className="relative p-4 sm:p-5 h-full flex flex-col">
         {/* Top row: drag handle + color dot + actions */}
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-3 sm:mb-4">
           <div className="flex items-center gap-2">
             {dragHandle}
             <button
               type="button"
               aria-pressed={selected}
-              className={`relative h-6 w-6 rounded-full border transition-colors ${
+              className={`relative h-7 w-7 sm:h-6 sm:w-6 rounded-full border transition-colors ${
                 selected
                   ? `${colors.accent} border-transparent`
                   : "border-border/70 bg-background/60 hover:bg-muted/60"
@@ -128,11 +128,11 @@ export default function SubjectCard({
               }}
             >
               {selected && (
-                <Check className="h-3.5 w-3.5 text-white absolute inset-0 m-auto" />
+                <Check className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-white absolute inset-0 m-auto" />
               )}
             </button>
           </div>
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity -mr-1 -mt-1">
+          <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity -mr-1 -mt-1">
             {onEdit && (
               <Button
                 variant="ghost"
@@ -161,31 +161,31 @@ export default function SubjectCard({
         </div>
 
         {/* Subject name */}
-        <h3 className="font-outfit font-semibold text-foreground text-lg mb-1 tracking-tight">
+        <h3 className="font-outfit font-semibold text-foreground text-base sm:text-lg mb-1 tracking-tight">
           {subject.name}
         </h3>
-        <p className="text-xs text-muted-foreground mb-5">
+        <p className="text-[11px] sm:text-xs text-muted-foreground mb-4 sm:mb-5">
           {totalItems === 0
             ? "No materials yet"
             : `${totalItems} ${totalItems === 1 ? "item" : "items"} total`}
         </p>
 
         {/* Stats row */}
-        <div className="flex items-center gap-3 mt-auto">
-          <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg ${colors.icon}`}>
-            <Mic className="h-3 w-3" />
+        <div className="flex items-center gap-2 sm:gap-3 mt-auto">
+          <div className={`flex items-center gap-1.5 text-[11px] sm:text-xs px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg ${colors.icon}`}>
+            <Mic className="h-3 w-3 sm:h-3 sm:w-3" />
             <span className="font-medium">{lectureCount}</span>
           </div>
-          <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg ${colors.icon}`}>
-            <BookOpen className="h-3 w-3" />
+          <div className={`flex items-center gap-1.5 text-[11px] sm:text-xs px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg ${colors.icon}`}>
+            <BookOpen className="h-3 w-3 sm:h-3 sm:w-3" />
             <span className="font-medium">{deckCount}</span>
           </div>
-          <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg ${colors.icon}`}>
-            <ClipboardCheck className="h-3 w-3" />
+          <div className={`flex items-center gap-1.5 text-[11px] sm:text-xs px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg ${colors.icon}`}>
+            <ClipboardCheck className="h-3 w-3 sm:h-3 sm:w-3" />
             <span className="font-medium">{examCount}</span>
           </div>
-          <div className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg ${colors.icon}`}>
-            <FileText className="h-3 w-3" />
+          <div className={`flex items-center gap-1.5 text-[11px] sm:text-xs px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg ${colors.icon}`}>
+            <FileText className="h-3 w-3 sm:h-3 sm:w-3" />
             <span className="font-medium">{documentCount}</span>
           </div>
           <div className="flex-1" />

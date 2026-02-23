@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -31,7 +31,15 @@ export default function Layout({
   onLogoClick,
 }: LayoutProps) {
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const update = () => setSidebarOpen(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
 
   const email = typeof user?.email === "string" ? user.email : "";
   const displayName = email.includes("@") ? email.split("@")[0] : email;
@@ -101,19 +109,41 @@ export default function Layout({
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* Sidebar */}
         <AnimatePresence>
           {sidebarOpen && (
             <motion.aside
-              className="w-56 border-r border-border bg-card/30 shrink-0 overflow-hidden"
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 224, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
+              className="w-56 border-r border-border bg-card/95 backdrop-blur-lg overflow-hidden fixed inset-y-12 left-0 z-40 lg:static lg:inset-auto"
+              initial={{ x: -224, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -224, opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              {sidebar}
+              <div
+                onClick={() => {
+                  if (window.matchMedia("(min-width: 1024px)").matches) return;
+                  setSidebarOpen(false);
+                }}
+              >
+                {sidebar}
+              </div>
             </motion.aside>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {sidebarOpen && (
+            <motion.button
+              type="button"
+              className="fixed inset-0 top-12 bg-black/40 z-30 lg:hidden"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Close sidebar"
+            />
           )}
         </AnimatePresence>
 
