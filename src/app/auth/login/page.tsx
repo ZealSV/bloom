@@ -27,30 +27,22 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-
     if (error) {
       setError(error.message);
       setLoading(false);
-    } else {
-      try {
-        await fetch("/api/onboarding", { method: "POST" });
-      } catch {
-        // Non-blocking: user can still continue if bootstrap call fails.
-      }
-      router.push("/app");
-      router.refresh();
+      return;
     }
+    router.push("/app");
+    router.refresh();
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2.5">
             <Image
@@ -71,8 +63,7 @@ export default function LoginPage() {
 
         <Card className="bg-card border-border">
           <CardHeader className="pb-4">
-            <div className="space-y-2">
-            </div>
+            <div className="space-y-2" />
           </CardHeader>
 
           <div className="px-6">

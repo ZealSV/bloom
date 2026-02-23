@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -19,89 +19,187 @@ export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [step, setStep] = useState<"request" | "verify">("request");
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+  const otpRefs = useRef<Array<HTMLInputElement | null>>([]);
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (step === "verify") {
+      otpRefs.current[0]?.focus();
+    }
+  }, [step]);
+
+  const handleRequestOtp = async (
+    e?: React.FormEvent | React.MouseEvent
+  ) => {
+    e?.preventDefault();
+    setLoading(true);
     setError("");
 
-    if (password !== confirmPassword) {
-      setError("Passwords don't match");
-      return;
-    }
-
     if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+      setError("Password must be at least 6 characters.");
+      setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      setLoading(false);
+      return;
+    }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
+    const res = await fetch("/api/auth/request-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
     });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Unable to send code.");
+      setLoading(false);
+      return;
+    }
+    setStep("verify");
+    setLoading(false);
+  };
 
-    if (error) {
-      setError(error.message);
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otp.length !== 6) {
+      setError("Enter the 6-digit code.");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    const res = await fetch("/api/auth/verify-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp, password }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      setError(data.error || "Invalid code.");
       setLoading(false);
-    } else {
-      // If email confirmation is disabled and a session exists immediately,
-      // bootstrap onboarding row right away.
-      if (data.session) {
-        try {
-          await fetch("/api/onboarding", { method: "POST" });
-        } catch {
-          // Non-blocking for signup UX.
-        }
-      }
-      setSuccess(true);
-      setLoading(false);
+      return;
+    }
+
+    if (data?.access_token && data?.refresh_token) {
+      await supabase.auth.setSession({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+      });
+    }
+
+    try {
+      await fetch("/api/onboarding", { method: "POST" });
+    } catch {
+      // Non-blocking for signup UX.
+    }
+    router.push("/app");
+    router.refresh();
+  };
+
+  const handleOtpChange = (index: number, value: string) => {
+    if (!/^\d?$/.test(value)) return;
+    const next = otp.split("");
+    next[index] = value;
+    const combined = next.join("").padEnd(6, "");
+    setOtp(combined);
+
+    if (value && index < 5) {
+      otpRefs.current[index + 1]?.focus();
     }
   };
 
-  if (success) {
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
+  };
+
+  useEffect(() => {
+    if (step === "verify" && /^\d{6}$/.test(otp)) {
+      const form = otpRefs.current[0]?.closest("form");
+      form?.requestSubmit();
+    }
+  }, [otp, step]);
+
+  if (step === "verify") {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-        <Card className="w-full max-w-sm bg-card border-border">
-          <CardContent className="pt-6 text-center">
-            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                className="text-primary"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </div>
-            <h3 className="font-outfit font-semibold text-lg mb-1">
-              Check your email
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              We sent a confirmation link to{" "}
-              <span className="text-foreground">{email}</span>. Click it to
-              activate your account.
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <Link href="/" className="inline-flex items-center gap-2.5">
+              <Image
+                src="/bloomlogo.png"
+                alt="bloom"
+                width={40}
+                height={40}
+                className="rounded-xl"
+              />
+              <span className="font-outfit font-semibold text-2xl text-primary">
+                bloom
+              </span>
+            </Link>
+            <p className="text-sm text-muted-foreground mt-2">
+              Enter the 6-digit code we sent to {email}.
             </p>
-            <Button
-              variant="outline"
-              className="mt-4"
-              onClick={() => router.push("/auth/login")}
-            >
-              Back to login
-            </Button>
-          </CardContent>
-        </Card>
+          </div>
+
+          <Card className="bg-card border-border">
+            <CardHeader className="pb-2">
+              <div className="space-y-2" />
+            </CardHeader>
+            <form onSubmit={handleVerifyOtp}>
+              <CardContent className="pt-4 space-y-4">
+                <div className="flex items-center justify-center gap-2">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <Input
+                      key={index}
+                      ref={(el) => (otpRefs.current[index] = el)}
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={otp[index] || ""}
+                      onChange={(e) =>
+                        handleOtpChange(index, e.target.value)
+                      }
+                      onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                      className="h-12 w-12 text-center text-lg font-semibold"
+                    />
+                  ))}
+                </div>
+                {error && <p className="text-xs text-destructive">{error}</p>}
+              </CardContent>
+              <CardFooter className="flex flex-col gap-3">
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? "Verifying..." : "Verify and continue"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full text-xs"
+                  onClick={handleRequestOtp}
+                  disabled={loading}
+                >
+                  Resend code
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full text-xs"
+                  onClick={() => setStep("request")}
+                  disabled={loading}
+                >
+                  Change email
+                </Button>
+              </CardFooter>
+            </form>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -109,7 +207,6 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-sm">
-        {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2.5">
             <Image
@@ -130,11 +227,10 @@ export default function SignupPage() {
 
         <Card className="bg-card border-border">
           <CardHeader className="pb-4">
-            <div className="space-y-2">
-            </div>
+            <div className="space-y-2" />
           </CardHeader>
 
-          <form onSubmit={handleSignup}>
+          <form onSubmit={handleRequestOtp}>
             <CardContent className="pt-4 space-y-3 w-full max-w-xs mx-auto">
               <div className="space-y-1.5">
                 <Label htmlFor="email" className="text-xs">
@@ -163,11 +259,11 @@ export default function SignupPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="confirm" className="text-xs">
+                <Label htmlFor="confirmPassword" className="text-xs">
                   Confirm password
                 </Label>
                 <Input
-                  id="confirm"
+                  id="confirmPassword"
                   type="password"
                   placeholder="••••••••"
                   value={confirmPassword}
@@ -179,7 +275,7 @@ export default function SignupPage() {
             </CardContent>
             <CardFooter className="flex flex-col gap-3">
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Creating account..." : "Create account"}
+                {loading ? "Sending code..." : "Send code"}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
                 Already have an account?{" "}
