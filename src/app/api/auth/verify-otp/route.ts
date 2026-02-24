@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     if (!isValidEmail(email) || !isValidOtp(otp) || password.length < 6) {
       return NextResponse.json(
         { error: "Invalid signup details." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     if (fetchError || !otpRecord) {
       return NextResponse.json(
         { error: "No pending code found. Please request a new one." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         .eq("id", otpRecord.id);
       return NextResponse.json(
         { error: "Code expired. Please request a new one." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         .eq("id", otpRecord.id);
       return NextResponse.json(
         { error: "Too many attempts. Please request a new code." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
                 } remaining.`
               : "Too many attempts. Please request a new code.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -105,14 +105,14 @@ export async function POST(request: NextRequest) {
     if (createError?.message?.includes("already been registered")) {
       return NextResponse.json(
         { error: "Account already exists. Please sign in." },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
     if (createError) {
       return NextResponse.json(
         { error: "Account creation failed. Please try again." },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -125,14 +125,14 @@ export async function POST(request: NextRequest) {
           apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
         },
         body: JSON.stringify({ email, password }),
-      }
+      },
     );
 
     const session = await signInRes.json();
     if (!signInRes.ok) {
       return NextResponse.json(
         { error: "Authentication failed. Please try again." },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -150,13 +150,19 @@ export async function POST(request: NextRequest) {
           getAll() {
             return request.cookies.getAll();
           },
-          setAll(cookiesToSet: { name: string; value: string; options?: Record<string, unknown> }[]) {
+          setAll(
+            cookiesToSet: {
+              name: string;
+              value: string;
+              options?: Record<string, unknown>;
+            }[],
+          ) {
             cookiesToSet.forEach(({ name, value, options }) =>
-              response.cookies.set(name, value, options)
+              response.cookies.set(name, value, options),
             );
           },
         },
-      }
+      },
     );
 
     await supabaseClient.auth.setSession({
@@ -168,7 +174,7 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json(
       { error: "Something went wrong. Please try again." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
