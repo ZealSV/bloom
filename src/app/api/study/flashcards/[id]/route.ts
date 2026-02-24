@@ -18,6 +18,7 @@ export async function GET(
     .from("flashcard_decks")
     .select("*")
     .eq("id", deckId)
+    .eq("user_id", user.id)
     .single();
 
   if (deckError || !deck)
@@ -56,6 +57,7 @@ export async function PATCH(
     .from("flashcard_decks")
     .update(updates)
     .eq("id", deckId)
+    .eq("user_id", user.id)
     .select()
     .single();
 
@@ -80,7 +82,8 @@ export async function DELETE(
   const { error } = await supabase
     .from("flashcard_decks")
     .delete()
-    .eq("id", deckId);
+    .eq("id", deckId)
+    .eq("user_id", user.id);
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });

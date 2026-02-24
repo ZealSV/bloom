@@ -24,16 +24,29 @@ function Flower({
   colors,
   index,
   subtopicCount,
+  chartWidth,
 }: {
   concept: { name: string; mastery_score: number };
   x: number;
   colors: { petal: string; center: string; stem: string };
   index: number;
   subtopicCount: number;
+  chartWidth: number;
 }) {
   const [hovered, setHovered] = useState(false);
   const stage = getFlowerStage(concept.mastery_score);
   const groundY = 180;
+  const tooltipWidth = 170;
+  const tooltipPadding = 8;
+  const tooltipX = Math.max(
+    tooltipPadding,
+    Math.min(x - tooltipWidth / 2, chartWidth - tooltipWidth - tooltipPadding)
+  );
+  const tooltipCenterX = tooltipX + tooltipWidth / 2;
+  const tooltipTopY =
+    groundY - (stage === "full" ? 130 : stage === "blooming" ? 110 : 95);
+  const topicLabel =
+    concept.name.length > 34 ? `${concept.name.slice(0, 31)}...` : concept.name;
 
   return (
     <g
@@ -362,12 +375,9 @@ function Flower({
           animate={{ opacity: 1, y: 0, scale: 1 }}
         >
           <rect
-            x={x - 60}
-            y={
-              groundY -
-              (stage === "full" ? 130 : stage === "blooming" ? 110 : 95)
-            }
-            width={120}
+            x={tooltipX}
+            y={tooltipTopY}
+            width={tooltipWidth}
             height={32}
             rx={8}
             fill="rgba(10, 20, 10, 0.95)"
@@ -375,25 +385,19 @@ function Flower({
             strokeWidth={1}
           />
           <text
-            x={x}
-            y={
-              groundY -
-              (stage === "full" ? 113 : stage === "blooming" ? 93 : 78)
-            }
+            x={tooltipCenterX}
+            y={tooltipTopY + 17}
             textAnchor="middle"
             fill="#fff"
             fontSize={11}
             fontWeight="500"
             fontFamily="Outfit, sans-serif"
           >
-            {concept.name}
+            {topicLabel}
           </text>
           <text
-            x={x}
-            y={
-              groundY -
-              (stage === "full" ? 101 : stage === "blooming" ? 81 : 66)
-            }
+            x={tooltipCenterX}
+            y={tooltipTopY + 29}
             textAnchor="middle"
             fill="#4ade80"
             fontSize={9}
@@ -571,6 +575,7 @@ export default function KnowledgeGarden({
                 colors={colors}
                 index={i}
                 subtopicCount={group.concepts.length}
+                chartWidth={width}
               />
             ))}
           </svg>

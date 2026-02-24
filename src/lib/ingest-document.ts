@@ -77,12 +77,18 @@ export async function ingestDocument(
     throw new Error("Forbidden: you do not have access to this document");
   }
 
-  await supabaseAdmin
+  const { error: processingStatusError } = await supabaseAdmin
     .from("documents")
     .update({ status: "processing" })
     .eq("id", documentId);
+  if (processingStatusError) {
+    throw new Error(
+      `Failed to set processing status: ${formatSupabaseError(processingStatusError)}`
+    );
+  }
 
   let parser: PDFParse | null = null;
+  let chunksInserted = false;
 
   try {
     const { data: fileData, error: downloadError } = await supabaseAdmin.storage
@@ -127,18 +133,43 @@ export async function ingestDocument(
       const details = formatSupabaseError(insertError) || "Unknown insert error";
       throw new Error(`Failed to insert chunks: ${details}`);
     }
+    chunksInserted = true;
 
-    await supabaseAdmin
+    const { error: readyStatusError } = await supabaseAdmin
       .from("documents")
       .update({ status: "ready" })
       .eq("id", documentId);
+    if (readyStatusError) {
+      throw new Error(
+        `Failed to set ready status: ${formatSupabaseError(readyStatusError)}`
+      );
+    }
 
     return { chunksCreated: chunks.length };
   } catch (error) {
-    await supabaseAdmin
+    if (chunksInserted) {
+      const { error: chunkCleanupError } = await supabaseAdmin
+        .from("chunks")
+        .delete()
+        .eq("document_id", documentId);
+      if (chunkCleanupError) {
+        console.error("Ingest cleanup failed for chunks", {
+          documentId,
+          error: formatSupabaseError(chunkCleanupError),
+        });
+      }
+    }
+
+    const { error: failedStatusError } = await supabaseAdmin
       .from("documents")
       .update({ status: "failed" })
       .eq("id", documentId);
+    if (failedStatusError) {
+      console.error("Ingest failed status update failed", {
+        documentId,
+        error: formatSupabaseError(failedStatusError),
+      });
+    }
     throw error;
   } finally {
     if (parser) {

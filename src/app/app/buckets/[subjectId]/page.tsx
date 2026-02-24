@@ -101,9 +101,13 @@ export default function SubjectDetailPage({
     mode: "list",
   });
   const [examView, setExamView] = useState<ExamViewState>({ mode: "list" });
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadSuccessCount, setUploadSuccessCount] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const [documents, setDocuments] = useState<
@@ -232,80 +236,131 @@ export default function SubjectDetailPage({
     }
   }, [fetchExams, subjectId]);
 
-  const clearSelectedFile = useCallback(() => {
+  const clearSelectedFiles = useCallback(() => {
     if (isUploadingFile) return;
-    setUploadFile(null);
-    setUploadSuccess(false);
+    setUploadFiles([]);
+    setUploadSuccessCount(0);
     setUploadError(null);
     if (uploadInputRef.current) {
       uploadInputRef.current.value = "";
     }
   }, [isUploadingFile]);
 
-  const handleFileSelect = useCallback((candidate: File | null) => {
-    if (!candidate) return;
+  const removeSelectedFile = useCallback((indexToRemove: number) => {
+    if (isUploadingFile) return;
+    setUploadFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+    setUploadError(null);
+    setUploadSuccessCount(0);
+  }, [isUploadingFile]);
 
-    const isPdf =
-      candidate.type === "application/pdf" ||
-      candidate.name.toLowerCase().endsWith(".pdf");
+  const handleFileSelect = useCallback((fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
 
-    if (!isPdf) {
-      setUploadError("Please upload a PDF file.");
-      setUploadFile(null);
-      if (uploadInputRef.current) {
-        uploadInputRef.current.value = "";
-      }
-      return;
+    const incoming = Array.from(fileList);
+    const valid = incoming.filter(
+      (candidate) =>
+        candidate.type === "application/pdf" ||
+        candidate.name.toLowerCase().endsWith(".pdf")
+    );
+    const invalidCount = incoming.length - valid.length;
+
+    if (invalidCount > 0) {
+      setUploadError(
+        `${invalidCount} file${invalidCount === 1 ? "" : "s"} skipped. PDF only.`
+      );
+    } else {
+      setUploadError(null);
     }
 
-    setUploadError(null);
-    setUploadSuccess(false);
-    setUploadFile(candidate);
+    if (valid.length > 0) {
+      setUploadFiles((prev) => {
+        const seen = new Set(
+          prev.map((f) => `${f.name}:${f.size}:${f.lastModified}`)
+        );
+        const next = [...prev];
+        for (const file of valid) {
+          const key = `${file.name}:${file.size}:${file.lastModified}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            next.push(file);
+          }
+        }
+        return next;
+      });
+      setUploadSuccessCount(0);
+    }
+
+    if (uploadInputRef.current) {
+      uploadInputRef.current.value = "";
+    }
   }, []);
 
   const handleFileDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
-      handleFileSelect(e.dataTransfer.files?.[0] ?? null);
+      handleFileSelect(e.dataTransfer.files ?? null);
     },
     [handleFileSelect]
   );
 
   const handleInlineUpload = useCallback(async () => {
-    if (!uploadFile) return;
+    if (uploadFiles.length === 0) return;
 
     setUploadError(null);
     setIsUploadingFile(true);
+    setUploadSuccessCount(0);
+    setUploadProgress({ current: 0, total: uploadFiles.length });
 
     try {
-      const formData = new FormData();
-      formData.append("file", uploadFile);
-      formData.append("title", uploadFile.name);
-      formData.append("subjectId", subjectId);
+      const failed: File[] = [];
+      const errors: string[] = [];
+      let succeeded = 0;
 
-      const uploadResponse = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
+      for (let index = 0; index < uploadFiles.length; index += 1) {
+        const file = uploadFiles[index];
+        setUploadProgress({ current: index + 1, total: uploadFiles.length });
 
-      const uploadResult = await readApiResponse(uploadResponse);
-      if (!uploadResponse.ok) {
-        throw new Error(
-          (uploadResult as { error?: string })?.error ||
-            `Upload failed (${uploadResponse.status})`
-        );
+        try {
+          const formData = new FormData();
+          formData.append("file", file);
+          formData.append("title", file.name);
+          formData.append("subjectId", subjectId);
+
+          const uploadResponse = await fetch("/api/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          const uploadResult = await readApiResponse(uploadResponse);
+          if (!uploadResponse.ok) {
+            throw new Error(
+              (uploadResult as { error?: string })?.error ||
+                `Upload failed (${uploadResponse.status})`
+            );
+          }
+
+          succeeded += 1;
+        } catch (error) {
+          failed.push(file);
+          errors.push(
+            `${file.name}: ${error instanceof Error ? error.message : "Failed to upload."}`
+          );
+        }
       }
 
-      setUploadSuccess(true);
-      await fetchDocuments();
-    } catch (error) {
-      setUploadError(
-        error instanceof Error ? error.message : "Failed to upload file."
-      );
+      setUploadSuccessCount(succeeded);
+      setUploadFiles(failed);
+      if (succeeded > 0) {
+        await fetchDocuments();
+      }
+      if (errors.length > 0) {
+        setUploadError(errors.slice(0, 3).join(" | "));
+      }
     } finally {
       setIsUploadingFile(false);
+      setUploadProgress(null);
     }
-  }, [uploadFile, fetchDocuments]);
+  }, [uploadFiles, fetchDocuments, subjectId]);
 
   const handleEditSave = useCallback(async () => {
     const { type, id, title } = editDialog;
@@ -1291,70 +1346,94 @@ export default function SubjectDetailPage({
                   <Button
                     type="button"
                     onClick={handleInlineUpload}
-                    disabled={!uploadFile || isUploadingFile || uploadSuccess}
+                    disabled={uploadFiles.length === 0 || isUploadingFile}
                     size="sm"
                     className="shrink-0"
                   >
                     <FileUp className="mr-1.5 h-3.5 w-3.5" />
-                    {uploadSuccess
-                      ? "Done"
-                      : isUploadingFile
-                        ? "Uploading..."
-                        : "Upload PDF"}
+                    {isUploadingFile
+                      ? `Uploading${uploadProgress ? ` ${uploadProgress.current}/${uploadProgress.total}` : "..."}`
+                      : `Upload PDF${uploadFiles.length > 1 ? "s" : ""}`}
                   </Button>
                 </div>
 
-                {!uploadFile && (
-                  <div
-                    className="relative border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/40 transition-colors cursor-pointer"
-                    onClick={() => uploadInputRef.current?.click()}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={handleFileDrop}
-                  >
-                    <UploadCloud className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
-                    <p className="text-sm font-medium text-foreground mb-1">
-                      Drop your PDF here or click to browse
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      PDF only
-                    </p>
-                  </div>
-                )}
+                <div
+                  className="relative border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-primary/40 transition-colors cursor-pointer"
+                  onClick={() => uploadInputRef.current?.click()}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleFileDrop}
+                >
+                  <UploadCloud className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-foreground mb-1">
+                    Drop PDF files here or click to browse
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    PDF only
+                  </p>
+                </div>
 
                 <input
                   ref={uploadInputRef}
                   type="file"
                   accept=".pdf"
+                  multiple
                   className="hidden"
-                  onChange={(e) => handleFileSelect(e.target.files?.[0] ?? null)}
+                  onChange={(e) => handleFileSelect(e.target.files)}
                 />
 
-                {uploadFile && (
-                  <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2">
-                    <div className="min-w-0 flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <p className="text-sm text-foreground truncate">
-                        {uploadFile.name}
+                {uploadFiles.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        {uploadFiles.length} file{uploadFiles.length !== 1 ? "s" : ""} selected
                       </p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={clearSelectedFiles}
+                        disabled={isUploadingFile}
+                      >
+                        Clear all
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
-                      onClick={clearSelectedFile}
-                      disabled={isUploadingFile}
-                      title="Remove file"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {uploadFiles.map((file, index) => (
+                        <div
+                          key={`${file.name}:${file.size}:${file.lastModified}`}
+                          className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-3 py-2"
+                        >
+                          <div className="min-w-0 flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <p className="text-sm text-foreground truncate">
+                              {file.name}
+                            </p>
+                          </div>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                            onClick={() => removeSelectedFile(index)}
+                            disabled={isUploadingFile}
+                            title="Remove file"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
-                {uploadSuccess && (
+                {uploadSuccessCount > 0 && (
                   <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2">
                     <CheckCircle2 className="h-4 w-4 text-primary" />
-                    <p className="text-sm text-foreground">Uploaded and indexed.</p>
+                    <p className="text-sm text-foreground">
+                      Uploaded and indexed {uploadSuccessCount} file
+                      {uploadSuccessCount !== 1 ? "s" : ""}.
+                    </p>
                   </div>
                 )}
 

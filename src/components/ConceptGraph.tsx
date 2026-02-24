@@ -22,6 +22,76 @@ interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
   reasoning?: string | null;
 }
 
+const CONCEPT_STOP_WORDS = new Set([
+  "a",
+  "an",
+  "the",
+  "is",
+  "are",
+  "was",
+  "were",
+  "what",
+  "how",
+  "why",
+  "does",
+  "do",
+  "did",
+  "of",
+  "to",
+  "in",
+  "on",
+  "for",
+  "and",
+  "about",
+  "explain",
+  "define",
+]);
+
+function stemToken(token: string): string {
+  if (token.length <= 4) return token;
+  if (token.endsWith("ive")) return token.slice(0, -3);
+  if (token.endsWith("ion")) return token.slice(0, -3);
+  if (token.endsWith("ing")) return token.slice(0, -3);
+  if (token.endsWith("ed")) return token.slice(0, -2);
+  if (token.endsWith("es")) return token.slice(0, -2);
+  if (token.endsWith("s")) return token.slice(0, -1);
+  return token;
+}
+
+function conceptIdentityKey(name: string): string {
+  const tokens = name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .filter((t) => !CONCEPT_STOP_WORDS.has(t))
+    .map(stemToken);
+
+  if (tokens.length === 0) {
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  return tokens.join(" ");
+}
+
+function buildCanonicalConcepts(concepts: Concept[]) {
+  const canonical = new Map<string, Concept>();
+  for (const c of concepts) {
+    const key = conceptIdentityKey(c.name);
+    if (!key) continue;
+    const existing = canonical.get(key);
+    if (!existing || c.mastery_score > existing.mastery_score) {
+      canonical.set(key, c);
+    }
+  }
+  return canonical;
+}
+
 function getNodeColor(mastery: number, status: string): string {
   if (status === "mastered" || mastery >= 80) return "#4ade80";
   if (mastery >= 40) return "#fbbf24";
@@ -157,8 +227,10 @@ export default function ConceptGraph({
         .attr("fill", getLinkColor(rel));
     }
 
-    const nodes: GraphNode[] = concepts.map((c) => ({
-      id: c.name,
+    const canonicalConcepts = buildCanonicalConcepts(concepts);
+    const nodes: GraphNode[] = Array.from(canonicalConcepts.entries()).map(
+      ([key, c]) => ({
+      id: key,
       name: c.name,
       mastery: c.mastery_score,
       status: c.status,
@@ -169,13 +241,20 @@ export default function ConceptGraph({
     const nodeNames = new Set(nodes.map((n) => n.id));
 
     const links: GraphLink[] = relationships
-      .filter(
-        (r) =>
-          nodeNames.has(r.from_concept) && nodeNames.has(r.to_concept)
-      )
+      .map((r) => {
+        const source = conceptIdentityKey(r.from_concept);
+        const target = conceptIdentityKey(r.to_concept);
+        return {
+          ...r,
+          source,
+          target,
+        };
+      })
+      .filter((r) => nodeNames.has(r.source) && nodeNames.has(r.target))
+      .filter((r) => r.source !== r.target)
       .map((r) => ({
-        source: r.from_concept,
-        target: r.to_concept,
+        source: r.source,
+        target: r.target,
         relationship: r.relationship,
         reasoning: r.reasoning,
       }));
@@ -468,7 +547,20 @@ export default function ConceptGraph({
 }
 
 /** Helper to check if there are valid links to show the legend */
-function getValidLinks(relationships: ConceptRelationship[], concepts: Concept[]): ConceptRelationship[] {
-  const names = new Set(concepts.map((c) => c.name));
-  return relationships.filter((r) => names.has(r.from_concept) && names.has(r.to_concept));
+function getValidLinks(
+  relationships: ConceptRelationship[],
+  concepts: Concept[]
+): ConceptRelationship[] {
+  const canonicalNames = new Set(
+    concepts.map((c) => conceptIdentityKey(c.name)).filter(Boolean)
+  );
+  return relationships.filter((r) => {
+    const from = conceptIdentityKey(r.from_concept);
+    const to = conceptIdentityKey(r.to_concept);
+    return (
+      canonicalNames.has(from) &&
+      canonicalNames.has(to) &&
+      from !== to
+    );
+  });
 }

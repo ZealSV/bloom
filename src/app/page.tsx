@@ -125,7 +125,7 @@ export default function LandingPage() {
                 The best way to learn is to teach.
               </h1>
               <p className="text-base sm:text-lg text-muted-foreground max-w-lg leading-relaxed mb-10">
-                Bloom pretends to be your student. Explain any concept, and it
+                bloom pretends to be your student. Explain any concept, and it
                 asks the questions that reveal what you actually know — and what
                 you don&apos;t.
               </p>

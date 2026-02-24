@@ -42,6 +42,13 @@ interface ConceptGroup {
   mastery: number;
 }
 
+function normalizeGroupKey(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export default function MasteryDashboard({
   concepts,
   gaps,
@@ -81,16 +88,20 @@ export default function MasteryDashboard({
       return [{ label: "All Concepts", concepts, mastery }];
     }
 
-    const groupMap = new Map<string, Concept[]>();
+    const groupMap = new Map<string, { label: string; concepts: Concept[] }>();
     for (const c of concepts) {
       const label = sessionLookup.get(c.session_id) || "Other";
-      const list = groupMap.get(label) || [];
-      list.push(c);
-      groupMap.set(label, list);
+      const key = normalizeGroupKey(label);
+      const existing = groupMap.get(key);
+      if (existing) {
+        existing.concepts.push(c);
+      } else {
+        groupMap.set(key, { label, concepts: [c] });
+      }
     }
 
-    return Array.from(groupMap.entries())
-      .map(([label, groupConcepts]) => ({
+    return Array.from(groupMap.values())
+      .map(({ label, concepts: groupConcepts }) => ({
         label,
         concepts: groupConcepts.sort(
           (a, b) => b.mastery_score - a.mastery_score

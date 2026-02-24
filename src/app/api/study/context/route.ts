@@ -85,23 +85,50 @@ export async function POST(req: NextRequest) {
         query = query.in("id", sourceIds);
       }
 
-      const { data: documents } = await query;
+      const { data: documents, error: documentsError } = await query;
+      if (documentsError) {
+        console.error("Context documents query failed", {
+          userId: user.id,
+          sourceType,
+          subjectId,
+          error: documentsError.message,
+        });
+      }
       if (documents?.length) {
         documentCount = documents.length;
         context.push("\n=== UPLOADED DOCUMENTS ===");
-        for (const doc of documents) {
-          const { data: chunks } = await admin
-            .from("chunks")
-            .select("content")
-            .eq("document_id", doc.id)
-            .limit(15);
+        const documentIds = documents.map((doc) => doc.id);
+        const { data: allChunks, error: chunksError } = await admin
+          .from("chunks")
+          .select("document_id, content")
+          .in("document_id", documentIds);
+        if (chunksError) {
+          console.error("Context chunks query failed", {
+            userId: user.id,
+            sourceType,
+            subjectId,
+            documentCount: documentIds.length,
+            error: chunksError.message,
+          });
+        }
 
-          if (chunks?.length) {
-            chunkCount += chunks.length;
-            context.push(`\n--- Document: ${doc.title} ---`);
-            context.push(chunks.map((c) => c.content).join(" "));
+        const chunksByDocument = new Map<string, string[]>();
+        for (const chunk of allChunks ?? []) {
+          const existing = chunksByDocument.get(chunk.document_id) ?? [];
+          // Preserve historical behavior by only taking up to 15 chunks per document.
+          if (existing.length < 15) {
+            existing.push(chunk.content);
+            chunksByDocument.set(chunk.document_id, existing);
+          }
+        }
+
+        for (const doc of documents) {
+          const contents = chunksByDocument.get(doc.id) ?? [];
+          context.push(`\n--- Document: ${doc.title} ---`);
+          if (contents.length) {
+            chunkCount += contents.length;
+            context.push(contents.join(" "));
           } else {
-            context.push(`\n--- Document: ${doc.title} ---`);
             context.push("No extracted text found yet for this document.");
           }
         }
@@ -121,16 +148,46 @@ export async function POST(req: NextRequest) {
         sessQuery = sessQuery.in("id", sourceIds);
       }
 
-      const { data: sessions } = await sessQuery;
+      const { data: sessions, error: sessionsError } = await sessQuery;
+      if (sessionsError) {
+        console.error("Context sessions query failed", {
+          userId: user.id,
+          sourceType,
+          error: sessionsError.message,
+        });
+      }
       if (sessions?.length) {
+        const sessionIds = sessions.map((session) => session.id);
+        const { data: allMessages, error: messagesError } = await admin
+          .from("messages")
+          .select("session_id, role, content, created_at")
+          .in("session_id", sessionIds)
+          .order("created_at", { ascending: true });
+        if (messagesError) {
+          console.error("Context messages query failed", {
+            userId: user.id,
+            sourceType,
+            sessionCount: sessionIds.length,
+            error: messagesError.message,
+          });
+        }
+
+        const messagesBySession = new Map<
+          string,
+          Array<{ role: string; content: string }>
+        >();
+        for (const message of allMessages ?? []) {
+          const existing = messagesBySession.get(message.session_id) ?? [];
+          // Preserve historical behavior by only taking up to 30 messages per session.
+          if (existing.length < 30) {
+            existing.push({ role: message.role, content: message.content });
+            messagesBySession.set(message.session_id, existing);
+          }
+        }
+
         context.push("\n=== CHAT SESSION HISTORY ===");
         for (const sess of sessions) {
-          const { data: messages } = await admin
-            .from("messages")
-            .select("role, content")
-            .eq("session_id", sess.id)
-            .order("created_at", { ascending: true })
-            .limit(30);
+          const messages = messagesBySession.get(sess.id);
 
           if (messages?.length) {
             context.push(`\n--- Session: ${sess.topic} ---`);

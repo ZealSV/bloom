@@ -128,7 +128,10 @@ export function useSession() {
     const data = await res.json();
     setConcepts(data.concepts);
     setGaps(data.gaps);
-  }, [currentSession]);
+    if (typeof data.overallMastery === "number") {
+      setSessionMastery(data.overallMastery);
+    }
+  }, [currentSession, setConcepts, setGaps, setSessionMastery]);
 
   const refreshConcepts = useCallback(async () => {
     if (!currentSession) return;

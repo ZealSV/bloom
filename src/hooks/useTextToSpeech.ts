@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 interface UseTextToSpeechReturn {
   speak: (text: string) => Promise<void>;
@@ -9,10 +10,12 @@ interface UseTextToSpeechReturn {
 }
 
 export function useTextToSpeech(): UseTextToSpeechReturn {
+  const pathname = usePathname();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blobUrlRef = useRef<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
+  const previousPathRef = useRef<string | null>(null);
 
   const cleanup = useCallback(() => {
     if (controllerRef.current) {
@@ -110,7 +113,22 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
   );
 
   useEffect(() => {
+    const handlePageHide = () => stop();
+    const handleBeforeUnload = () => stop();
+    const handleVisibility = () => {
+      if (document.visibilityState !== "visible") {
+        stop();
+      }
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibility);
+
     return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibility);
       if (audioRef.current) {
         audioRef.current.pause();
       }
@@ -121,7 +139,18 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
         controllerRef.current.abort();
       }
     };
-  }, []);
+  }, [stop]);
+
+  useEffect(() => {
+    if (previousPathRef.current === null) {
+      previousPathRef.current = pathname;
+      return;
+    }
+    if (previousPathRef.current !== pathname) {
+      stop();
+      previousPathRef.current = pathname;
+    }
+  }, [pathname, stop]);
 
   return { speak, stop, isSpeaking };
 }

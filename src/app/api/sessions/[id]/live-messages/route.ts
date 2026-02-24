@@ -15,6 +15,34 @@ interface TranscriptMessage {
   timestamp: number;
 }
 
+function normalizeForDedup(content: string): string {
+  return content
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function logDbFailure(
+  operation: string,
+  userId: string,
+  sessionId: string,
+  error: unknown,
+) {
+  const dbError = error as
+    | { message?: string; code?: string; details?: string; hint?: string }
+    | undefined;
+  console.error("live_messages_db_write_failed", {
+    operation,
+    userId,
+    sessionId,
+    message: dbError?.message ?? "Unknown database error",
+    code: dbError?.code ?? null,
+    details: dbError?.details ?? null,
+    hint: dbError?.hint ?? null,
+  });
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -22,9 +50,10 @@ export async function POST(
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = user.id;
 
   const { id: sessionId } = await params;
-  const ownsSession = await userOwnsSession(supabase, sessionId, user.id);
+  const ownsSession = await userOwnsSession(supabase, sessionId, userId);
   if (!ownsSession) {
     return NextResponse.json({ error: "Session not found" }, { status: 404 });
   }
@@ -36,26 +65,56 @@ export async function POST(
     return NextResponse.json({ error: "No messages" }, { status: 400 });
   }
 
+  // Safety dedup: repeated realtime transcript finals can arrive twice.
+  const dedupedMessages: TranscriptMessage[] = [];
+  const lastSeenByKey = new Map<string, number>();
+  for (const m of messages) {
+    const content = typeof m?.content === "string" ? m.content.trim() : "";
+    if (!content) continue;
+    const role = m?.role === "bloom" ? "bloom" : "student";
+    const normalized = normalizeForDedup(content);
+    if (!normalized) continue;
+    const ts = Number.isFinite(m?.timestamp) ? m.timestamp : Date.now();
+    const key = `${role}:${normalized}`;
+    const lastTs = lastSeenByKey.get(key);
+    if (lastTs && Math.abs(ts - lastTs) < 10000) {
+      continue;
+    }
+    lastSeenByKey.set(key, ts);
+    dedupedMessages.push({ role, content, timestamp: ts });
+  }
+
   // Bulk insert messages
-  const rows = messages.map((m) => ({
+  const rows = dedupedMessages.map((m) => ({
     session_id: sessionId,
     role: m.role,
     content: m.content,
   }));
 
-  await supabase.from("messages").insert(rows);
+  const { error: messagesInsertError } = await supabase.from("messages").insert(rows);
+  if (messagesInsertError) {
+    logDbFailure("bulk_insert_messages", userId, sessionId, messagesInsertError);
+    return NextResponse.json(
+      { error: "Failed to save live messages" },
+      { status: 500 },
+    );
+  }
 
   async function processAnalysis(analysis: bloomAnalysis) {
     for (const concept of analysis.concepts_discussed) {
-      const { data: existing } = await supabase
+      const { data: existing, error: conceptLookupError } = await supabase
         .from("concepts")
         .select("id")
         .eq("session_id", sessionId)
         .eq("name", concept.name)
         .single();
+      if (conceptLookupError && conceptLookupError.code !== "PGRST116") {
+        logDbFailure("lookup_concept", userId, sessionId, conceptLookupError);
+        throw new Error("Failed to lookup concept");
+      }
 
       if (existing) {
-        await supabase
+        const { error: conceptUpdateError } = await supabase
           .from("concepts")
           .update({
             mastery_score: concept.mastery_score,
@@ -63,13 +122,17 @@ export async function POST(
               concept.mastery_score >= 80
                 ? "mastered"
                 : concept.mastery_score >= 40
-                  ? "tested"
-                  : "identified",
+                ? "tested"
+                : "identified",
             updated_at: new Date().toISOString(),
           })
           .eq("id", existing.id);
+        if (conceptUpdateError) {
+          logDbFailure("update_concept", userId, sessionId, conceptUpdateError);
+          throw new Error("Failed to update concept");
+        }
       } else {
-        await supabase.from("concepts").insert({
+        const { error: conceptInsertError } = await supabase.from("concepts").insert({
           session_id: sessionId,
           name: concept.name,
           mastery_score: concept.mastery_score,
@@ -80,44 +143,76 @@ export async function POST(
                 ? "tested"
                 : "identified",
         });
+        if (conceptInsertError) {
+          logDbFailure("insert_concept", userId, sessionId, conceptInsertError);
+          throw new Error("Failed to insert concept");
+        }
       }
     }
 
     for (const gap of analysis.gaps_detected) {
-      const { data: existing } = await supabase
+      const { data: existing, error: gapLookupError } = await supabase
         .from("gaps")
         .select("id")
         .eq("session_id", sessionId)
         .eq("concept_name", gap.concept)
         .eq("resolved", false)
         .single();
+      if (gapLookupError && gapLookupError.code !== "PGRST116") {
+        logDbFailure("lookup_gap", userId, sessionId, gapLookupError);
+        throw new Error("Failed to lookup gap");
+      }
 
       if (!existing) {
-        await supabase.from("gaps").insert({
+        const { error: gapInsertError } = await supabase.from("gaps").insert({
           session_id: sessionId,
           concept_name: gap.concept,
           description: gap.description,
         });
+        if (gapInsertError) {
+          logDbFailure("insert_gap", userId, sessionId, gapInsertError);
+          throw new Error("Failed to insert gap");
+        }
       }
     }
 
     for (const rel of analysis.concept_relationships) {
-      const { data: existing } = await supabase
+      const { data: existing, error: relationshipLookupError } = await supabase
         .from("concept_relationships")
         .select("id")
         .eq("session_id", sessionId)
         .eq("from_concept", rel.from)
         .eq("to_concept", rel.to)
         .single();
+      if (relationshipLookupError && relationshipLookupError.code !== "PGRST116") {
+        logDbFailure(
+          "lookup_concept_relationship",
+          userId,
+          sessionId,
+          relationshipLookupError,
+        );
+        throw new Error("Failed to lookup concept relationship");
+      }
 
       if (!existing) {
-        await supabase.from("concept_relationships").insert({
+        const { error: relationshipInsertError } = await supabase
+          .from("concept_relationships")
+          .insert({
           session_id: sessionId,
           from_concept: rel.from,
           to_concept: rel.to,
           relationship: rel.relationship,
           reasoning: rel.reasoning || null,
         });
+        if (relationshipInsertError) {
+          logDbFailure(
+            "insert_concept_relationship",
+            userId,
+            sessionId,
+            relationshipInsertError,
+          );
+          throw new Error("Failed to insert concept relationship");
+        }
       }
     }
   }
@@ -173,7 +268,22 @@ MASTERY SCORING RUBRIC (be strict):
     }
 
     return NextResponse.json({ success: true, analysis: null });
-  } catch {
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown processing error";
+    console.error("live_messages_processing_failed", {
+      userId,
+      sessionId,
+      message: errorMessage,
+    });
+
+    if (errorMessage.startsWith("Failed to")) {
+      return NextResponse.json(
+        { error: "Failed to process live session analysis" },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json({ success: true, analysis: null });
   }
 }

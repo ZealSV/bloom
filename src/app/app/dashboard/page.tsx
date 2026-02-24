@@ -30,6 +30,13 @@ function normalizeConceptName(name: string): string {
     .trim();
 }
 
+function normalizeTopicKey(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function deduplicateConcepts(concepts: Concept[]): Concept[] {
   const map = new Map<string, Concept>();
   for (const c of concepts) {
@@ -112,15 +119,16 @@ export default function DashboardPage() {
           setConcepts(deduped);
 
           const sessionById = new Map(rows.map((s) => [s.id, s]));
-          const groups = new Map<string, Concept[]>();
+          const groups = new Map<string, { topic: string; concepts: Concept[] }>();
           for (const concept of conceptData) {
             const session = sessionById.get(concept.session_id);
             const topic = session?.topic?.trim() || "Untitled";
-            if (!groups.has(topic)) groups.set(topic, []);
-            groups.get(topic)?.push(concept);
+            const key = normalizeTopicKey(topic);
+            if (!groups.has(key)) groups.set(key, { topic, concepts: [] });
+            groups.get(key)?.concepts.push(concept);
           }
 
-          const groupList = Array.from(groups.entries()).map(([topic, list]) => {
+          const groupList = Array.from(groups.values()).map(({ topic, concepts: list }) => {
             const topicKey = normalizeConceptName(topic);
             const allUnique = deduplicateConcepts(list);
             const subtopics = allUnique.filter(
@@ -128,7 +136,10 @@ export default function DashboardPage() {
             );
             const mastery =
               allUnique.length > 0
-                ? Math.max(...allUnique.map((c) => c.mastery_score))
+                ? Math.round(
+                    allUnique.reduce((sum, c) => sum + c.mastery_score, 0) /
+                      allUnique.length
+                  )
                 : 0;
             return { topic, mastery_score: mastery, concepts: subtopics };
           });

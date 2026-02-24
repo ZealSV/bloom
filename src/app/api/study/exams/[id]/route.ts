@@ -18,6 +18,7 @@ export async function GET(
     .from("practice_exams")
     .select("*")
     .eq("id", examId)
+    .eq("user_id", user.id)
     .single();
 
   if (error || !exam)
@@ -28,6 +29,7 @@ export async function GET(
     .from("exam_attempts")
     .select("*")
     .eq("exam_id", examId)
+    .eq("user_id", user.id)
     .order("completed_at", { ascending: false });
 
   return NextResponse.json({ exam, attempts: attempts || [] });
@@ -54,6 +56,7 @@ export async function PATCH(
     .from("practice_exams")
     .update(updates)
     .eq("id", examId)
+    .eq("user_id", user.id)
     .select()
     .single();
 
@@ -78,7 +81,8 @@ export async function DELETE(
   const { error } = await supabase
     .from("practice_exams")
     .delete()
-    .eq("id", examId);
+    .eq("id", examId)
+    .eq("user_id", user.id);
 
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });

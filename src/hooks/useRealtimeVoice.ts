@@ -17,6 +17,14 @@ export function stopAllStreams() {
   activeStreams.clear();
 }
 
+function normalizeTranscriptForDedup(input: string): string {
+  return input
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export interface TranscriptMessage {
   role: "student" | "bloom";
   content: string;
@@ -45,6 +53,8 @@ interface UseRealtimeVoiceReturn {
   elapsedSeconds: number;
 }
 
+const SPEAKING_TO_LISTENING_HANDOFF_MS = 900;
+
 export function useRealtimeVoice({
   sessionId,
   topic,
@@ -63,6 +73,7 @@ export function useRealtimeVoice({
   const transcriptRef = useRef<TranscriptMessage[]>([]);
   const currentBloomText = useRef("");
   const lastStudentRef = useRef<{ text: string; at: number } | null>(null);
+  const processedInputItemIdsRef = useRef<Set<string>>(new Set());
   const disconnectedRef = useRef(false);
   const responseActiveRef = useRef(false);
   const responseRequestedRef = useRef(false);
@@ -71,6 +82,9 @@ export function useRealtimeVoice({
   const responseRequestTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTranscriptAtRef = useRef<number>(0);
   const onByeRef = useRef(onBye);
+  const speakingHandoffTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
 
   // Keep onBye ref current without re-creating callbacks
   useEffect(() => {
@@ -88,6 +102,10 @@ export function useRealtimeVoice({
     if (responseRequestTimeoutRef.current) {
       clearTimeout(responseRequestTimeoutRef.current);
       responseRequestTimeoutRef.current = null;
+    }
+    if (speakingHandoffTimerRef.current) {
+      clearTimeout(speakingHandoffTimerRef.current);
+      speakingHandoffTimerRef.current = null;
     }
 
     // 1. Stop timer
@@ -166,8 +184,13 @@ export function useRealtimeVoice({
     setTranscript([]);
     currentBloomText.current = "";
     lastStudentRef.current = null;
+    processedInputItemIdsRef.current.clear();
     responseActiveRef.current = false;
     disconnectedRef.current = false;
+    if (speakingHandoffTimerRef.current) {
+      clearTimeout(speakingHandoffTimerRef.current);
+      speakingHandoffTimerRef.current = null;
+    }
 
     try {
       // ── 1. Get ephemeral token + reference context ──
@@ -296,6 +319,10 @@ export function useRealtimeVoice({
           switch (msg.type) {
             // ── VAD events ──
             case "input_audio_buffer.speech_started":
+              if (speakingHandoffTimerRef.current) {
+                clearTimeout(speakingHandoffTimerRef.current);
+                speakingHandoffTimerRef.current = null;
+              }
               setStatus("listening");
               if (responseTimerRef.current) {
                 clearTimeout(responseTimerRef.current);
@@ -317,6 +344,11 @@ export function useRealtimeVoice({
 
             // ── Bloom response transcript ──
             case "response.output_audio_transcript.delta":
+              if (speakingHandoffTimerRef.current) {
+                clearTimeout(speakingHandoffTimerRef.current);
+                speakingHandoffTimerRef.current = null;
+              }
+              setStatus("speaking");
               currentBloomText.current += msg.delta || "";
               break;
 
@@ -339,10 +371,18 @@ export function useRealtimeVoice({
               const userText = msg.transcript;
               if (!userText?.trim()) break;
 
-              const normalized = userText
-                .trim()
-                .toLowerCase()
-                .replace(/\s+/g, " ");
+              const itemId =
+                (typeof msg.item_id === "string" && msg.item_id) ||
+                (typeof msg.item?.id === "string" && msg.item.id) ||
+                null;
+              if (itemId) {
+                if (processedInputItemIdsRef.current.has(itemId)) {
+                  break;
+                }
+                processedInputItemIdsRef.current.add(itemId);
+              }
+
+              const normalized = normalizeTranscriptForDedup(userText);
               const now = Date.now();
               const last = lastStudentRef.current;
               lastTranscriptAtRef.current = now;
@@ -350,15 +390,24 @@ export function useRealtimeVoice({
               // Fuzzy dedup: skip if >80% similar to last message within 8s
               let isDuplicate = false;
               if (last && now - last.at < 8000) {
-                const shorter = Math.min(last.text.length, normalized.length);
-                const longer = Math.max(last.text.length, normalized.length);
-                if (shorter > 0 && longer > 0) {
-                  const ratio = shorter / longer;
-                  const prefixLen = Math.min(30, shorter);
-                  const prefixMatch =
-                    last.text.slice(0, prefixLen) ===
-                    normalized.slice(0, prefixLen);
-                  isDuplicate = ratio > 0.8 && prefixMatch;
+                if (last.text === normalized) {
+                  isDuplicate = true;
+                } else {
+                  const shorter = Math.min(last.text.length, normalized.length);
+                  const longer = Math.max(last.text.length, normalized.length);
+                  if (shorter > 0 && longer > 0) {
+                    const ratio = shorter / longer;
+                    const prefixLen = Math.min(40, shorter);
+                    const prefixMatch =
+                      last.text.slice(0, prefixLen) ===
+                      normalized.slice(0, prefixLen);
+                    const oneContainsOther =
+                      shorter >= 20 &&
+                      (last.text.includes(normalized) ||
+                        normalized.includes(last.text));
+                    isDuplicate =
+                      (ratio > 0.8 && prefixMatch) || oneContainsOther;
+                  }
                 }
               }
 
@@ -398,12 +447,23 @@ export function useRealtimeVoice({
                 clearTimeout(responseRequestTimeoutRef.current);
                 responseRequestTimeoutRef.current = null;
               }
+              if (speakingHandoffTimerRef.current) {
+                clearTimeout(speakingHandoffTimerRef.current);
+                speakingHandoffTimerRef.current = null;
+              }
               setStatus("speaking");
               break;
 
             case "response.done":
               responseActiveRef.current = false;
-              setStatus("listening");
+              if (speakingHandoffTimerRef.current) {
+                clearTimeout(speakingHandoffTimerRef.current);
+              }
+              // Do not flip immediately; the audible tail often continues briefly after response.done.
+              speakingHandoffTimerRef.current = setTimeout(() => {
+                setStatus("listening");
+                speakingHandoffTimerRef.current = null;
+              }, SPEAKING_TO_LISTENING_HANDOFF_MS);
               lastResponseAtRef.current = Date.now();
               break;
 
