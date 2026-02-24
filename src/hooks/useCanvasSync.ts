@@ -41,6 +41,25 @@ export function useCanvasSync() {
   const [courses, setCourses] = useState<CanvasCoursePreview[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
 
+  const parseResponseBody = useCallback(async (res: Response) => {
+    const contentType = res.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      try {
+        return await res.json();
+      } catch {
+        return null;
+      }
+    }
+    try {
+      const text = await res.text();
+      if (!text) return null;
+      const compact = text.replace(/\s+/g, " ").trim();
+      return { error: compact.slice(0, 240) };
+    } catch {
+      return null;
+    }
+  }, []);
+
   const checkCredentials = useCallback(async () => {
     try {
       const res = await fetch("/api/canvas/credentials");
@@ -64,9 +83,9 @@ export function useCanvasSync() {
           body: JSON.stringify({ canvasBaseUrl, canvasApiToken }),
         });
 
-        const data = await res.json();
+        const data = await parseResponseBody(res);
         if (!res.ok) {
-          setError(data.error || "Failed to save credentials");
+          setError(data?.error || "Failed to save credentials");
           return false;
         }
 
@@ -82,7 +101,7 @@ export function useCanvasSync() {
         setLoading(false);
       }
     },
-    []
+    [parseResponseBody]
   );
 
   const removeCredentials = useCallback(async () => {
@@ -104,20 +123,21 @@ export function useCanvasSync() {
     setError(null);
     try {
       const res = await fetch("/api/canvas/courses");
-      const data = await res.json();
+      const data = await parseResponseBody(res);
       if (!res.ok) {
-        setError(data.error || "Failed to fetch courses");
+        setError(data?.error || "Failed to fetch courses");
         return [];
       }
-      setCourses(data);
-      return data as CanvasCoursePreview[];
+      const parsed = Array.isArray(data) ? (data as CanvasCoursePreview[]) : [];
+      setCourses(parsed);
+      return parsed;
     } catch {
       setError("Network error fetching courses");
       return [];
     } finally {
       setLoadingCourses(false);
     }
-  }, []);
+  }, [parseResponseBody]);
 
   const triggerSync = useCallback(
     async (courseIds?: number[]) => {
@@ -130,20 +150,20 @@ export function useCanvasSync() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ courseIds }),
         });
-        const contentType = res.headers.get("content-type") || "";
-        let data: any = null;
-        if (contentType.includes("application/json")) {
-          try {
-            data = await res.json();
-          } catch {
-            data = null;
-          }
-        } else {
-          const text = await res.text();
-          data = text ? { error: text } : null;
-        }
+        const data = await parseResponseBody(res);
         if (!res.ok) {
-          setError(data?.error || `Sync failed (${res.status})`);
+          const rawError = data?.error || `Sync failed (${res.status})`;
+          if (String(rawError).includes("403")) {
+            setError(
+              "Canvas denied access to some resources (403). This is usually a permissions or course access issue."
+            );
+          } else if (res.status >= 500 && !data?.error) {
+            setError(
+              "Sync failed due to a server issue. Please retry; large syncs may need multiple runs."
+            );
+          } else {
+            setError(rawError);
+          }
           return null;
         }
         if (!data) {
@@ -160,7 +180,7 @@ export function useCanvasSync() {
         setSyncing(false);
       }
     },
-    [checkCredentials]
+    [checkCredentials, parseResponseBody]
   );
 
   return {

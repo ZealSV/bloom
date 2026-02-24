@@ -4,6 +4,8 @@
  */
 
 const CANVAS_PAGE_SIZE = 100;
+const CANVAS_TIMEOUT_MS = 15000;
+const CANVAS_MAX_RETRIES = 3;
 
 export interface CanvasCredentials {
   token: string;
@@ -36,6 +38,8 @@ export interface CanvasFile {
   content_type: string;
   created_at: string;
   updated_at: string;
+  locked_for_user?: boolean;
+  hidden_for_user?: boolean;
 }
 
 interface CanvasModuleItem {
@@ -65,12 +69,66 @@ class CanvasAPIError extends Error {
   }
 }
 
+class CanvasDownloadError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+  ) {
+    super(message);
+    this.name = "CanvasDownloadError";
+  }
+}
+
 function normalizeBaseUrl(baseUrl: string): string {
   let url = baseUrl.trim().replace(/\/+$/, "");
   if (!url.endsWith("/api/v1")) {
     url = url + "/api/v1";
   }
   return url;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  {
+    retries = CANVAS_MAX_RETRIES,
+    timeoutMs = CANVAS_TIMEOUT_MS,
+  }: { retries?: number; timeoutMs?: number } = {},
+): Promise<Response> {
+  let attempt = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      if (
+        response.ok ||
+        attempt >= retries ||
+        (response.status !== 429 && (response.status < 500 || response.status >= 600))
+      ) {
+        return response;
+      }
+
+      const retryAfter = response.headers.get("Retry-After");
+      const retryMs = retryAfter ? Number(retryAfter) * 1000 : 0;
+      const backoff = Math.min(1000 * Math.pow(2, attempt), 5000);
+      await sleep(retryMs || backoff + Math.floor(Math.random() * 200));
+    } catch (err: any) {
+      if (attempt >= retries || err?.name !== "AbortError") {
+        throw err;
+      }
+      const backoff = Math.min(1000 * Math.pow(2, attempt), 5000);
+      await sleep(backoff + Math.floor(Math.random() * 200));
+    } finally {
+      clearTimeout(timeout);
+    }
+    attempt += 1;
+  }
 }
 
 async function canvasRequest<T>(
@@ -80,7 +138,7 @@ async function canvasRequest<T>(
 ): Promise<T> {
   const base = normalizeBaseUrl(creds.baseUrl);
   const url = `${base}${endpoint}`;
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     ...options,
     headers: {
       Authorization: `Bearer ${creds.token}`,
@@ -111,7 +169,7 @@ async function canvasRequestPaginated<T>(
 
   while (url) {
     const fullUrl = url.startsWith("http") ? url : `${base}${url}`;
-    const response = await fetch(fullUrl, {
+    const response = await fetchWithRetry(fullUrl, {
       headers: {
         Authorization: `Bearer ${creds.token}`,
         Accept: "application/json",
@@ -340,9 +398,12 @@ export async function downloadFileContent(
   const headers: HeadersInit = {
     Authorization: `Bearer ${creds.token}`,
   };
-  const response = await fetch(downloadUrl, { headers });
+  const response = await fetchWithRetry(downloadUrl, { headers });
   if (!response.ok) {
-    throw new Error(`Failed to download file: ${response.statusText}`);
+    throw new CanvasDownloadError(
+      `Failed to download file: ${response.status} ${response.statusText}`,
+      response.status,
+    );
   }
   const arrayBuffer = await response.arrayBuffer();
   return Buffer.from(arrayBuffer);

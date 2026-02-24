@@ -6,55 +6,60 @@ export async function GET() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user)
+  if (!user) {
+    console.error("[subjects] Unauthorized request (no user).");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  console.error("[subjects] Fetching subjects for user:", user.id);
   let data: any[] | null = null;
   let error: any | null = null;
 
   const baseQuery = "*, lectures(count), flashcard_decks(count), practice_exams(count)";
-  const withDocsQuery = `${baseQuery}, documents(count)`;
 
   const first = await supabase
     .from("subjects")
-    .select(withDocsQuery)
+    .select(baseQuery)
     .order("created_at", { ascending: false });
   data = first.data as any[] | null;
   error = first.error;
-  let docsRelationMissing = false;
-
-  if (error && error.code === "PGRST200") {
-    console.error("[subjects] Missing documents relation, retrying without it.");
-    docsRelationMissing = true;
-    const retry = await supabase
-      .from("subjects")
-      .select(baseQuery)
-      .order("created_at", { ascending: false });
-    data = retry.data as any[] | null;
-    error = retry.error;
-  }
 
   if (error) {
-    console.error("[subjects] Fetch error:", error);
+    console.error("[subjects] Fetch error:", {
+      userId: user.id,
+      code: (error as any)?.code,
+      message: error.message,
+      details: (error as any)?.details,
+      hint: (error as any)?.hint,
+    });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   let documentCountMap: Map<string, number> | null = null;
-  if (docsRelationMissing) {
-    const { data: docsData, error: docsError } = await supabase
-      .from("documents" as any)
-      .select("subject_id")
-      .not("subject_id", "is", null)
-      .eq("user_id", user.id);
+  const { data: docsData, error: docsError } = await supabase
+    .from("documents" as any)
+    .select("subject_id")
+    .not("subject_id", "is", null)
+    .eq("user_id", user.id);
 
-    if (!docsError && Array.isArray(docsData)) {
-      documentCountMap = new Map<string, number>();
-      for (const row of docsData as any[]) {
-        const id = row?.subject_id as string | null;
-        if (!id) continue;
-        documentCountMap.set(id, (documentCountMap.get(id) || 0) + 1);
-      }
+  if (docsError) {
+    console.error("[subjects] Document count fetch error:", {
+      userId: user.id,
+      code: (docsError as any)?.code,
+      message: docsError.message,
+      details: (docsError as any)?.details,
+      hint: (docsError as any)?.hint,
+    });
+  } else if (!Array.isArray(docsData)) {
+    console.error("[subjects] Document count fetch returned non-array.", {
+      userId: user.id,
+      type: typeof docsData,
+    });
+  } else {
+    documentCountMap = new Map<string, number>();
+    for (const row of docsData as any[]) {
+      const id = row?.subject_id as string | null;
+      if (!id) continue;
+      documentCountMap.set(id, (documentCountMap.get(id) || 0) + 1);
     }
   }
 
@@ -68,9 +73,7 @@ export async function GET() {
     lecture_count: s.lectures?.[0]?.count ?? 0,
     deck_count: s.flashcard_decks?.[0]?.count ?? 0,
     exam_count: s.practice_exams?.[0]?.count ?? 0,
-    document_count:
-      s.documents?.[0]?.count ??
-      (documentCountMap ? documentCountMap.get(s.id) || 0 : 0),
+    document_count: documentCountMap ? documentCountMap.get(s.id) || 0 : 0,
   }));
 
   return NextResponse.json(subjects);

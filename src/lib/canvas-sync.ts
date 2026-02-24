@@ -10,6 +10,10 @@ import { getSupabaseAdmin } from "./supabase-admin";
 import { ingestDocument } from "./ingest-document";
 
 const MATERIALS_BUCKET = "learning materials";
+const MAX_CANVAS_FILE_BYTES = 50 * 1024 * 1024;
+const MAX_SYNC_RUNTIME_MS = 52000;
+const MAX_FILES_PER_SYNC = 250;
+const MIN_INGEST_BUDGET_MS = 10000;
 const SUBJECT_COLORS = [
   "blue",
   "green",
@@ -71,16 +75,41 @@ export async function syncCanvasContent(
   let filesUploaded = 0;
   let filesSkipped = 0;
   let filesIngested = 0;
+  let filesProcessed = 0;
+  let stoppedEarly = false;
+  let stopReason = "";
+
+  const shouldStopEarly = () => {
+    if (Date.now() - startTime > MAX_SYNC_RUNTIME_MS) {
+      stoppedEarly = true;
+      stopReason = `Sync paused early to avoid timeout. Re-run sync to continue.`;
+      return true;
+    }
+    if (filesProcessed >= MAX_FILES_PER_SYNC) {
+      stoppedEarly = true;
+      stopReason = `Sync paused after ${MAX_FILES_PER_SYNC} files to keep this run stable. Re-run sync to continue.`;
+      return true;
+    }
+    return false;
+  };
 
   // 1. Fetch courses from Canvas
   let courses: CanvasCourse[];
   try {
     courses = await listCourses(creds, { currentTermOnly: true });
-  } catch {
+  } catch (e) {
+    console.warn("[canvas-sync] Failed to fetch current-term courses, falling back to all terms.", {
+      userId,
+      error: String(e),
+    });
     // Fall back to all courses if term filtering fails
     try {
       courses = await listCourses(creds, { currentTermOnly: false });
     } catch (e2) {
+      console.error("[canvas-sync] Failed to fetch any Canvas courses.", {
+        userId,
+        error: String(e2),
+      });
       return {
         success: false,
         coursesCreated: 0,
@@ -101,8 +130,13 @@ export async function syncCanvasContent(
     courses = courses.filter((c) => selectedSet.has(c.id));
   }
 
+  let fatalAuthError = false;
+
   // 2. For each course, upsert a subject and sync files
   for (const course of courses) {
+    if (shouldStopEarly()) break;
+    if (fatalAuthError) break;
+
     try {
       // Check if subject with this canvas_course_id already exists
       const { data: existing } = await admin
@@ -132,6 +166,12 @@ export async function syncCanvasContent(
           .single();
 
         if (insertErr || !newSubject) {
+          console.error("[canvas-sync] Failed to create subject.", {
+            userId,
+            courseId: course.id,
+            courseCode: course.course_code,
+            error: insertErr?.message,
+          });
           errors.push(
             `Failed to create subject for ${course.name}: ${insertErr?.message}`
           );
@@ -146,19 +186,55 @@ export async function syncCanvasContent(
       let files: CanvasFile[];
       try {
         files = await listCourseFiles(creds, course.id);
-      } catch {
+      } catch (e: any) {
+        const status = Number(e?.status || 0);
+        if (status === 401) {
+          fatalAuthError = true;
+          console.error("[canvas-sync] Canvas credentials rejected while fetching files.", {
+            userId,
+            courseId: course.id,
+            courseCode: course.course_code,
+          });
+          errors.push("Canvas credentials rejected (401). Reconnect Canvas.");
+          break;
+        }
         warnings.push(
-          `[${course.course_code}] Could not fetch files — skipped`
+          `[${course.course_code}] Could not fetch files — skipped (${status || "unknown"})`
         );
+        console.warn("[canvas-sync] Failed to list course files.", {
+          userId,
+          courseId: course.id,
+          courseCode: course.course_code,
+          status,
+          error: String(e),
+        });
         continue;
       }
 
       // 4. For each file, download + upload + ingest PDFs
       for (const file of files) {
+        if (shouldStopEarly()) break;
+        if (fatalAuthError) break;
+        filesProcessed++;
+
         try {
           // Skip file types we don't need (videos, images, archives, etc.)
           const ext = (file.filename.split(".").pop() || "").toLowerCase();
           if (!UPLOADABLE_EXTENSIONS.has(ext)) {
+            continue;
+          }
+          if (file.locked_for_user || file.hidden_for_user) {
+            warnings.push(
+              `[${course.course_code}] File locked or hidden: ${file.display_name}`
+            );
+            continue;
+          }
+          if (file.size > MAX_CANVAS_FILE_BYTES) {
+            warnings.push(
+              `[${course.course_code}] File too large to sync (${Math.round(
+                file.size / (1024 * 1024)
+              )}MB): ${file.display_name}`
+            );
             continue;
           }
 
@@ -188,7 +264,45 @@ export async function syncCanvasContent(
 
           // Download from Canvas
           const downloadUrl = file.download_url ?? file.url;
-          const buffer = await downloadFileContent(creds, downloadUrl);
+          let buffer: Buffer;
+          try {
+            buffer = await downloadFileContent(creds, downloadUrl);
+          } catch (e: any) {
+            const status = Number(e?.status || 0);
+            if (status === 401) {
+              fatalAuthError = true;
+              errors.push("Canvas credentials rejected (401). Reconnect Canvas.");
+              console.error("[canvas-sync] Canvas credentials rejected while downloading file.", {
+                userId,
+                courseId: course.id,
+                courseCode: course.course_code,
+                fileId: file.id,
+                fileName: file.display_name,
+              });
+              break;
+            }
+            if (status === 403) {
+              warnings.push(
+                `[${course.course_code}] Access denied for ${file.display_name} (403)`
+              );
+              continue;
+            }
+            if (status === 404) {
+              warnings.push(
+                `[${course.course_code}] File missing in Canvas: ${file.display_name} (404)`
+              );
+              continue;
+            }
+            if (status === 429) {
+              warnings.push(
+                `[${course.course_code}] Rate limited while downloading ${file.display_name} (429)`
+              );
+              continue;
+            }
+            throw e;
+          }
+
+          if (fatalAuthError) break;
 
           // Create document record
           const fileExt = file.filename.split(".").pop() || "pdf";
@@ -208,6 +322,14 @@ export async function syncCanvasContent(
             .single();
 
           if (docErr || !doc) {
+            console.error("[canvas-sync] Failed to create document row.", {
+              userId,
+              courseId: course.id,
+              courseCode: course.course_code,
+              fileId: file.id,
+              fileName: file.display_name,
+              error: docErr?.message,
+            });
             errors.push(
               `[${course.course_code}] Failed to create doc for ${file.display_name}: ${docErr?.message}`
             );
@@ -224,6 +346,15 @@ export async function syncCanvasContent(
             });
 
           if (uploadErr) {
+            console.error("[canvas-sync] Storage upload failed.", {
+              userId,
+              courseId: course.id,
+              courseCode: course.course_code,
+              fileId: file.id,
+              fileName: file.display_name,
+              error: uploadErr.message,
+            });
+            await admin.from("documents").delete().eq("id", doc.id);
             errors.push(
               `[${course.course_code}] Storage upload failed for ${file.display_name}: ${uploadErr.message}`
             );
@@ -231,38 +362,88 @@ export async function syncCanvasContent(
           }
 
           // Update file_path
-          await admin
+          const { error: updateDocErr } = await admin
             .from("documents")
             .update({ file_path: storagePath })
             .eq("id", doc.id);
+
+          if (updateDocErr) {
+            console.error("[canvas-sync] Failed to update document file_path.", {
+              userId,
+              documentId: doc.id,
+              fileName: file.display_name,
+              error: updateDocErr.message,
+            });
+            errors.push(
+              `[${course.course_code}] Failed to finalize ${file.display_name}: ${updateDocErr.message}`
+            );
+            continue;
+          }
 
           filesUploaded++;
 
           // Ingest (chunking + embedding) — only for PDFs
           if (canIngest) {
+            const remainingMs = MAX_SYNC_RUNTIME_MS - (Date.now() - startTime);
+            if (remainingMs < MIN_INGEST_BUDGET_MS) {
+              warnings.push(
+                `[${course.course_code}] Skipped ingest for ${file.display_name} in this run due to time budget`
+              );
+              continue;
+            }
             try {
               await ingestDocument(doc.id);
               filesIngested++;
             } catch (e) {
+              console.warn("[canvas-sync] Ingest failed.", {
+                userId,
+                documentId: doc.id,
+                fileName: file.display_name,
+                error: String(e),
+              });
               warnings.push(
                 `[${course.course_code}] Ingest failed for ${file.display_name}: ${e}`
               );
             }
           }
         } catch (e) {
+          console.error("[canvas-sync] Unexpected file processing failure.", {
+            userId,
+            courseId: course.id,
+            courseCode: course.course_code,
+            fileId: file.id,
+            fileName: file.display_name,
+            error: String(e),
+          });
           errors.push(
             `[${course.course_code}] Error processing ${file.display_name}: ${e}`
           );
         }
       }
     } catch (e) {
+      console.error("[canvas-sync] Unexpected course sync failure.", {
+        userId,
+        courseId: course.id,
+        courseCode: course.course_code,
+        error: String(e),
+      });
       errors.push(`Error syncing ${course.name}: ${e}`);
     }
   }
 
+  if (stoppedEarly && stopReason) {
+    warnings.push(stopReason);
+    console.warn("[canvas-sync] Stopped early.", {
+      userId,
+      reason: stopReason,
+      filesProcessed,
+      durationMs: Date.now() - startTime,
+    });
+  }
+
   // 5. Update sync metadata
-  const hasRealErrors = errors.length > 0;
-  await admin
+  const hasRealErrors = errors.length > 0 || stoppedEarly;
+  const { error: syncMetaErr } = await admin
     .from("canvas_credentials")
     .update({
       last_sync_at: new Date().toISOString(),
@@ -274,8 +455,15 @@ export async function syncCanvasContent(
     })
     .eq("user_id", userId);
 
+  if (syncMetaErr) {
+    console.error("[canvas-sync] Failed to update sync metadata.", {
+      userId,
+      error: syncMetaErr.message,
+    });
+  }
+
   return {
-    success: !hasRealErrors,
+    success: errors.length === 0 && !stoppedEarly,
     coursesCreated,
     coursesSkipped,
     filesUploaded,

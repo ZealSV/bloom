@@ -9,17 +9,30 @@ export async function GET() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user)
+  if (!user) {
+    console.error("[canvas-credentials-route] Unauthorized credentials status request.");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const admin = getSupabaseAdmin();
-  const { data } = await admin
+  const { data, error } = await admin
     .from("canvas_credentials")
     .select(
       "canvas_base_url, last_sync_at, last_sync_status, last_sync_error"
     )
     .eq("user_id", user.id)
     .maybeSingle();
+
+  if (error) {
+    console.error("[canvas-credentials-route] Failed to fetch credential status.", {
+      userId: user.id,
+      error: error.message,
+    });
+    return NextResponse.json(
+      { error: "Failed to fetch Canvas credentials." },
+      { status: 500 }
+    );
+  }
 
   if (!data) {
     return NextResponse.json({ hasCredentials: false });
@@ -39,10 +52,27 @@ export async function POST(req: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user)
+  if (!user) {
+    console.error("[canvas-credentials-route] Unauthorized credentials save request.");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
-  const { canvasBaseUrl, canvasApiToken } = await req.json();
+  let canvasBaseUrl = "";
+  let canvasApiToken = "";
+  try {
+    const body = await req.json();
+    canvasBaseUrl = String(body?.canvasBaseUrl || "");
+    canvasApiToken = String(body?.canvasApiToken || "");
+  } catch (e) {
+    console.error("[canvas-credentials-route] Invalid JSON payload.", {
+      userId: user.id,
+      error: String(e),
+    });
+    return NextResponse.json(
+      { error: "Invalid request payload" },
+      { status: 400 }
+    );
+  }
 
   if (!canvasBaseUrl?.trim() || !canvasApiToken?.trim()) {
     return NextResponse.json(
@@ -58,6 +88,10 @@ export async function POST(req: NextRequest) {
   });
 
   if (!isValid) {
+    console.warn("[canvas-credentials-route] Canvas credential validation failed.", {
+      userId: user.id,
+      canvasBaseUrl: canvasBaseUrl.trim(),
+    });
     return NextResponse.json(
       { error: "Invalid Canvas credentials. Check your URL and token." },
       { status: 400 }
@@ -78,6 +112,10 @@ export async function POST(req: NextRequest) {
   );
 
   if (error) {
+    console.error("[canvas-credentials-route] Failed to upsert credentials.", {
+      userId: user.id,
+      error: error.message,
+    });
     return NextResponse.json(
       { error: "Failed to save credentials" },
       { status: 500 }
@@ -92,11 +130,27 @@ export async function DELETE() {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user)
+  if (!user) {
+    console.error("[canvas-credentials-route] Unauthorized credentials delete request.");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const admin = getSupabaseAdmin();
-  await admin.from("canvas_credentials").delete().eq("user_id", user.id);
+  const { error } = await admin
+    .from("canvas_credentials")
+    .delete()
+    .eq("user_id", user.id);
+
+  if (error) {
+    console.error("[canvas-credentials-route] Failed to delete credentials.", {
+      userId: user.id,
+      error: error.message,
+    });
+    return NextResponse.json(
+      { error: "Failed to disconnect Canvas" },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ success: true });
 }
